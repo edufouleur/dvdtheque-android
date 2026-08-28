@@ -4,17 +4,30 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import fr.dvdtheque.app.data.*
+import fr.dvdtheque.app.network.*
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
+sealed interface TmdbUiState {
+    data object Idle : TmdbUiState
+    data object Loading : TmdbUiState
+    data class Results(val movies: List<TmdbMovieResult>) : TmdbUiState
+    data class Preview(val details: TmdbMovieDetails) : TmdbUiState
+    data class Error(val message: String) : TmdbUiState
+}
+
 class MovieViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = MovieRepository(AppDatabase.get(application).movieDao())
+    private val tmdbRepository = TmdbRepository()
 
     private val _query = MutableStateFlow("")
     val query = _query.asStateFlow()
 
     private val _sort = MutableStateFlow(MovieSort.TITLE_ASC)
     val sort = _sort.asStateFlow()
+
+    private val _tmdbState = MutableStateFlow<TmdbUiState>(TmdbUiState.Idle)
+    val tmdbState = _tmdbState.asStateFlow()
 
     val movies: StateFlow<List<Movie>> = combine(repository.movies, _query, _sort) { movies, query, sort ->
         val filtered = if (query.isBlank()) movies else movies.filter {
@@ -36,6 +49,33 @@ class MovieViewModel(application: Application) : AndroidViewModel(application) {
     fun setQuery(value: String) { _query.value = value }
     fun setSort(value: MovieSort) { _sort.value = value }
 
+    fun searchTmdb(query: String) = viewModelScope.launch {
+        if (query.isBlank()) return@launch
+        _tmdbState.value = TmdbUiState.Loading
+        _tmdbState.value = try {
+            TmdbUiState.Results(tmdbRepository.search(query))
+        } catch (e: Exception) {
+            TmdbUiState.Error(e.message ?: "Erreur de recherche TMDB")
+        }
+    }
+
+    fun loadTmdbDetails(id: Int) = viewModelScope.launch {
+        _tmdbState.value = TmdbUiState.Loading
+        _tmdbState.value = try {
+            TmdbUiState.Preview(tmdbRepository.details(id))
+        } catch (e: Exception) {
+            TmdbUiState.Error(e.message ?: "Impossible de charger les détails du film")
+        }
+    }
+
+    fun addTmdbMovie(details: TmdbMovieDetails, status: MovieStatus, onSaved: () -> Unit) = viewModelScope.launch {
+        repository.save(tmdbRepository.toMovie(details, status))
+        _tmdbState.value = TmdbUiState.Idle
+        onSaved()
+    }
+
+    fun resetTmdb() { _tmdbState.value = TmdbUiState.Idle }
+
     fun save(movie: Movie, onSaved: (() -> Unit)? = null) = viewModelScope.launch {
         repository.save(movie)
         onSaved?.invoke()
@@ -50,3 +90,4 @@ class MovieViewModel(application: Application) : AndroidViewModel(application) {
         onDeleted?.invoke()
     }
 }
+
