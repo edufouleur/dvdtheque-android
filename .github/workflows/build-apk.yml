@@ -2,7 +2,6 @@ name: Compiler APK DVDtheque
 
 on:
   workflow_dispatch:
-
   push:
     branches:
       - main
@@ -28,7 +27,9 @@ jobs:
           gradle-version: '9.3.1'
 
       - name: Compiler APK
-        run: gradle :app:assembleDebug
+        env:
+          TMDB_TOKEN: ${{ secrets.TMDB_TOKEN }}
+        run: gradle :app:assembleDebug -PTMDB_TOKEN="$TMDB_TOKEN"
 
       - name: Publier APK
         uses: actions/upload-artifact@v4
