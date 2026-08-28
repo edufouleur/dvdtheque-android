@@ -21,9 +21,9 @@ data class Movie(
     val edition: String = "",
     val discCount: Int? = null,
     val location: String = "",
-    val addedAt: Long = System.currentTimeMillis()
+    val addedAt: Long = System.currentTimeMillis(),
+    val watched: Boolean = false
 )
 
 enum class MovieStatus { OWNED, WANTED }
-
-enum class MovieSort { TITLE_ASC, TITLE_DESC, YEAR_DESC, YEAR_ASC, RECENTLY_ADDED }
+enum class MovieSort { TITLE_ASC, TITLE_DESC, YEAR_DESC, YEAR_ASC, RECENTLY_ADDED, RATING_DESC }

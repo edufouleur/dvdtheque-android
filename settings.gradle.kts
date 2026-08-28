@@ -14,5 +14,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "DVDtheque"
+rootProject.name = "Reelio"
 include(":app")

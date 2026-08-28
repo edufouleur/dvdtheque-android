@@ -1,23 +1,30 @@
-# DVDthèque Android — V1
+# Reelio 1.3
 
-Application Android locale pour gérer une collection de DVD et une liste de souhaits.
+Application Android Kotlin + Jetpack Compose pour gérer une collection de DVD et une liste de souhaits.
 
-## Fonctions présentes
-- Bibliothèque des DVD possédés
-- Liste de souhaits
-- Ajout manuel d'un film
-- Recherche par titre, réalisateur, genre ou acteur
-- Tri par titre, année ou date d'ajout
-- Fiche détaillée
-- Passage « souhait » → « acquis » et inversement
-- Suppression
-- Stockage local Room, hors connexion
+## Nouveautés 1.3
+- Interface sombre et bibliothèque visuelle avec affiches.
+- Recherche automatique TMDB en français.
+- Notes personnelles de 1 à 5 étoiles.
+- Statut Vu / Pas vu.
+- Souhaits et passage vers la collection.
+- « Que regarder ce soir ? » : tirage au hasard parmi les films non vus.
+- « Continuer une saga » : suggestion du titre suivant lorsqu'une saga connue est reconnue.
+- Ordres de visionnage : Marvel (films + séries), Star Wars, Harry Potter et Le Seigneur des Anneaux.
+- Ordre chronologique ou ordre de sortie pour Marvel.
+- Statistiques de collection.
+- Aucun module de prêt de DVD.
 
-## Ouvrir le projet
-1. Installer une version récente d'Android Studio avec JDK 17 et Android SDK 36.
-2. Ouvrir le dossier `DVDthequeAndroid` dans Android Studio.
-3. Laisser Gradle synchroniser les dépendances.
-4. Lancer l'application sur un émulateur ou téléphone Android 8.0+ (API 26+).
+## TMDB
+Dans GitHub : Settings > Secrets and variables > Actions > New repository secret.
+Créer le secret `TMDB_TOKEN` avec l'API Read Access Token de TMDB.
 
-## Étape suivante envisagée
-Brancher une API cinéma pour rechercher automatiquement les films, récupérer les affiches et remplir les métadonnées, puis ajouter le scan du code-barres des DVD.
+## Compilation
+Le workflow `.github/workflows/build-apk.yml` compile automatiquement l'APK sur GitHub Actions.
+L'artefact final s'appelle `Reelio-APK` et contient `app-debug.apk`.
+
+## Mise à jour de la base locale
+La version 1.3 ajoute le champ `watched` avec une migration Room 1 -> 2 pour conserver les films déjà enregistrés.
+
+## Attribution TMDB
+Ce produit utilise l'API TMDB mais n'est ni approuvé ni certifié par TMDB.
