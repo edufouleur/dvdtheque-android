@@ -6,6 +6,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -27,11 +28,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
@@ -59,32 +62,18 @@ private val ReelioBrandPurple = Color(0xFF9D5CFF)
 private enum class ReelioThemeMode(val label: String) { AUTO("Auto"), LIGHT("Clair"), DARK("Sombre") }
 
 private enum class AccentChoice(val label: String, val color: Color, val onColor: Color) {
-    CRIMSON("Carmin", Color(0xFFB71C1C), Color.White),
     RED("Rouge", Color(0xFFE53935), Color.White),
-    CORAL("Corail", Color(0xFFFF6F61), Color.Black),
-    DEEP_ORANGE("Orange vif", Color(0xFFFF5722), Color.White),
     ORANGE("Orange", Color(0xFFFF8C00), Color.Black),
     AMBER("Ambre", Color(0xFFFFB300), Color.Black),
-    YELLOW("Jaune", Color(0xFFFFD54F), Color.Black),
-    LIME("Citron vert", Color(0xFFCDDC39), Color.Black),
-    LIGHT_GREEN("Vert clair", Color(0xFF7CB342), Color.Black),
     GREEN("Vert", Color(0xFF2E7D32), Color.White),
-    EMERALD("Émeraude", Color(0xFF00A86B), Color.White),
-    MINT("Menthe", Color(0xFF4DB6AC), Color.Black),
     TURQUOISE("Turquoise", Color(0xFF19C7B3), Color.Black),
     CYAN("Cyan", Color(0xFF00ACC1), Color.Black),
-    SKY_BLUE("Bleu ciel", Color(0xFF29B6F6), Color.Black),
     BLUE("Bleu", Color(0xFF3687FF), Color.White),
-    DEEP_BLUE("Bleu profond", Color(0xFF1565C0), Color.White),
     INDIGO("Indigo", Color(0xFF5B5FEF), Color.White),
-    DEEP_PURPLE("Pourpre", Color(0xFF6A1B9A), Color.White),
     VIOLET("Violet", Color(0xFF9D5CFF), Color.White),
-    LAVENDER("Lavande", Color(0xFFB388FF), Color.Black),
-    MAGENTA("Magenta", Color(0xFFD81B60), Color.White),
     PINK("Rose", Color(0xFFFF5CA8), Color.White),
-    ROSE("Rose poudré", Color(0xFFF48FB1), Color.Black),
-    BROWN("Brun", Color(0xFF795548), Color.White),
-    SILVER("Argent", Color(0xFF90A4AE), Color.Black)
+    SILVER("Gris", Color(0xFF90A4AE), Color.Black),
+    WHITE("Blanc", Color(0xFFF5F5F5), Color.Black)
 }
 
 @Composable
@@ -198,27 +187,15 @@ private fun ReelioTopBar(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Surface(
-                    shape = CircleShape,
-                    color = ReelioBrandPurple,
-                    modifier = Modifier.size(34.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            Icons.Default.MovieFilter,
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(22.dp)
-                        )
-                    }
-                }
+                ReelioReelLogo(Modifier.size(36.dp))
                 Column {
                     Text(
                         "Reelio",
                         style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.ExtraBold
+                        fontWeight = FontWeight.ExtraBold,
+                        color = ReelioBrandPurple
                     )
-                    if (screen != "Bibliothèque") {
+                    if (screen !in setOf("Bibliothèque", "Souhaits", "Que regarder ce soir ?", "Paramètres")) {
                         Text(
                             screen,
                             style = MaterialTheme.typography.labelMedium,
@@ -230,6 +207,35 @@ private fun ReelioTopBar(
         },
         actions = actions
     )
+}
+
+@Composable
+private fun ReelioReelLogo(modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier) {
+        val radius = size.minDimension / 2f
+        val center = Offset(size.width / 2f, size.height / 2f)
+        drawCircle(color = ReelioBrandPurple, radius = radius, center = center)
+        drawCircle(color = Color(0xFF17111F), radius = radius * 0.72f, center = center)
+        drawCircle(color = ReelioBrandPurple, radius = radius * 0.18f, center = center)
+        val holeRadius = radius * 0.14f
+        val orbit = radius * 0.43f
+        listOf(-90f, 0f, 90f, 180f).forEach { degrees ->
+            val rad = Math.toRadians(degrees.toDouble())
+            drawCircle(
+                color = ReelioBrandPurple,
+                radius = holeRadius,
+                center = Offset(
+                    center.x + (kotlin.math.cos(rad) * orbit).toFloat(),
+                    center.y + (kotlin.math.sin(rad) * orbit).toFloat()
+                )
+            )
+        }
+        drawRect(
+            color = ReelioBrandPurple,
+            topLeft = Offset(size.width * .68f, size.height * .72f),
+            size = androidx.compose.ui.geometry.Size(size.width * .28f, size.height * .14f)
+        )
+    }
 }
 
 @Composable
@@ -1002,11 +1008,24 @@ private fun WatchTonightScreen(
             Modifier.padding(padding).fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            ScreenHeading(
-                "Que regarder ce soir ?",
-                "Trouvons le film parfait pour votre soirée",
-                Modifier.padding(horizontal = 14.dp)
-            )
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                ScreenHeading(
+                    "Que regarder ce soir ?",
+                    "Trouvons le film parfait pour votre soirée",
+                    Modifier.weight(1f)
+                )
+                Surface(
+                    shape = RoundedCornerShape(18.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = .45f))
+                ) {
+                    Text("🍿", fontSize = 44.sp, modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp))
+                }
+            }
 
             SingleChoiceSegmentedButtonRow(
                 Modifier.fillMaxWidth().padding(horizontal = 12.dp)
@@ -1160,6 +1179,7 @@ private fun SettingsScreen(
     val context = LocalContext.current
     val movies by vm.movies.collectAsStateWithLifecycle()
     val gson = remember { Gson() }
+    var showAbout by remember { mutableStateOf(false) }
 
     val backupLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/json")
@@ -1286,27 +1306,23 @@ private fun SettingsScreen(
                                         else MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                     Text(mode.label, fontWeight = FontWeight.Bold)
-                                    if (mode == ReelioThemeMode.AUTO) {
-                                        Text(
-                                            "Selon l'heure",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
                                 }
                             }
                         }
                     }
 
                     Spacer(Modifier.height(8.dp))
-                    Text("Couleur d’accentuation", fontWeight = FontWeight.Bold)
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(Icons.Default.Palette, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                        Text("Couleurs", fontWeight = FontWeight.Bold)
+                    }
                     Text(
-                        "Choisissez une couleur pour les boutons, icônes et sélections.",
+                        "Choisissez la couleur des boutons, icônes et éléments actifs.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
 
-                    AccentChoice.entries.chunked(7).forEach { rowChoices ->
+                    AccentChoice.entries.chunked(6).forEach { rowChoices ->
                         Row(
                             Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
@@ -1330,7 +1346,7 @@ private fun SettingsScreen(
                                     }
                                 }
                             }
-                            repeat(7 - rowChoices.size) { Spacer(Modifier.size(38.dp)) }
+                            repeat(6 - rowChoices.size) { Spacer(Modifier.size(38.dp)) }
                         }
                     }
                 }
@@ -1364,7 +1380,7 @@ private fun SettingsScreen(
                         icon = Icons.Default.Info,
                         title = "À propos de Reelio",
                         subtitle = "Version ${BuildConfig.VERSION_NAME}"
-                    ) { }
+                    ) { showAbout = true }
 
                     Text(
                         "Reelio — Votre collection, vos films, vos univers.",
@@ -1378,6 +1394,32 @@ private fun SettingsScreen(
                 }
             }
         }
+    }
+
+    if (showAbout) {
+        AlertDialog(
+            onDismissRequest = { showAbout = false },
+            icon = { ReelioReelLogo(Modifier.size(54.dp)) },
+            title = {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("Reelio", fontWeight = FontWeight.ExtraBold, color = ReelioBrandPurple)
+                    Text("Version ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.bodySmall)
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Votre collection cinéma, simplement organisée.")
+                    Text("by ED", fontWeight = FontWeight.Bold, color = ReelioBrandPurple)
+                    HorizontalDivider()
+                    Text("Reelio vous permet de gérer votre bibliothèque, vos souhaits, vos sagas et de choisir quoi regarder.")
+                    Text("Données cinéma et affiches fournies par TMDB. Reelio utilise l’API TMDB mais n’est ni approuvé ni certifié par TMDB.", style = MaterialTheme.typography.bodySmall)
+                    Text("Votre collection est enregistrée localement sur votre appareil.", style = MaterialTheme.typography.bodySmall)
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showAbout = false }) { Text("Fermer") }
+            }
+        )
     }
 }
 

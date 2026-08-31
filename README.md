@@ -1,17 +1,22 @@
-# Reelio v1.6 — Cinéma Premium UI
+# Reelio v1.7 — Cinéma Premium
 
-Cette version rapproche l’interface Android réelle de la maquette Cinéma Premium validée.
+Cette version reprend Reelio v1.6 et intègre les demandes validées après cette version.
 
-## Nouveautés visuelles
+## Modifications
 
-- Reelio et son logo violet en haut à gauche.
-- Barre de navigation sombre avec Bibliothèque, Souhaits, bouton + central, Ce soir et Paramètres.
-- Bibliothèque en grille compacte de grandes affiches, cartes sombres et indicateurs Vu / À voir.
-- Fiche film avec visuel héro, affiche, note, statut, synopsis, casting, édition et saga.
-- Écran « Que regarder ce soir ? » retravaillé avec le mode « Aléatoire », Continuer et Ordre.
-- Paramètres Cinéma Premium avec Clair / Sombre / Auto selon l’heure et palette étendue de couleurs d’accentuation.
-- Boutons principaux pleins, boutons secondaires avec contour et coins arrondis.
-- Sauvegarde, restauration, export et informations Reelio conservés.
+- Logo Reelio avec bobine de cinéma violette en haut à gauche.
+- Le nom Reelio reste violet, indépendamment de la couleur choisie.
+- Suppression du rappel de page sous Reelio dans Souhaits, Que regarder ce soir ? et Paramètres.
+- Ajout d’une boîte de pop-corn dans « Que regarder ce soir ? ».
+- « Aléatoire » est conservé comme nom du mode de sélection aléatoire.
+- Dans Paramètres, « Couleur d’accentuation » devient « Couleurs » avec une icône de palette de peintre.
+- Palette simplifiée à 12 coloris.
+- La couleur choisie s’applique aux boutons et éléments actifs, y compris la navigation du bas.
+- Thème : Auto / Clair / Sombre, sans mention « selon l’heure » dans l’interface.
+- Le bouton « À propos de Reelio » ouvre maintenant une vraie fenêtre d’information.
+- Ajout du crédit « by ED ».
+- Sauvegarde, restauration et export restent disponibles.
+- Les statistiques restent supprimées.
 
 ## TMDB
 
