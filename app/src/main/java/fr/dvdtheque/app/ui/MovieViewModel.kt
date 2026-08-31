@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import fr.dvdtheque.app.data.*
 import fr.dvdtheque.app.network.*
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
@@ -15,6 +16,14 @@ sealed interface TmdbUiState {
     data class Preview(val details: TmdbMovieDetails) : TmdbUiState
     data class Error(val message: String) : TmdbUiState
 }
+
+data class DiscoveryState(
+    val loading: Boolean = false,
+    val cinema: List<TmdbMovieResult> = emptyList(),
+    val forYou: List<TmdbMovieResult> = emptyList(),
+    val physical: List<TmdbMovieResult> = emptyList(),
+    val error: String? = null
+)
 
 class MovieViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = MovieRepository(AppDatabase.get(application).movieDao())
@@ -28,6 +37,9 @@ class MovieViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _tmdbState = MutableStateFlow<TmdbUiState>(TmdbUiState.Idle)
     val tmdbState = _tmdbState.asStateFlow()
+
+    private val _discovery = MutableStateFlow(DiscoveryState())
+    val discovery = _discovery.asStateFlow()
 
     val movies: StateFlow<List<Movie>> = combine(repository.movies, _query, _sort) { movies, query, sort ->
         val filtered = if (query.isBlank()) movies else movies.filter {
@@ -61,10 +73,36 @@ class MovieViewModel(application: Application) : AndroidViewModel(application) {
         catch (e: Exception) { TmdbUiState.Error(e.message ?: "Impossible de charger les détails") }
     }
 
+    fun loadDiscovery() = viewModelScope.launch {
+        if (_discovery.value.loading) return@launch
+        _discovery.value = _discovery.value.copy(loading = true, error = null)
+        try {
+            val current = movies.value
+            val cinema = async { tmdbRepository.nowPlaying() }
+            val forYou = async { tmdbRepository.recommendations(current) }
+            val physical = async { tmdbRepository.physicalReleases() }
+            _discovery.value = DiscoveryState(
+                cinema = cinema.await(),
+                forYou = forYou.await(),
+                physical = physical.await()
+            )
+        } catch (e: Exception) {
+            _discovery.value = DiscoveryState(error = e.message ?: "Impossible de charger les suggestions")
+        }
+    }
+
     fun addTmdbMovie(details: TmdbMovieDetails, status: MovieStatus, onSaved: () -> Unit) = viewModelScope.launch {
         repository.save(tmdbRepository.toMovie(details, status))
         _tmdbState.value = TmdbUiState.Idle
         onSaved()
+    }
+
+    fun addSuggestionToWishlist(result: TmdbMovieResult, onSaved: (() -> Unit)? = null) = viewModelScope.launch {
+        try {
+            val details = tmdbRepository.details(result.id)
+            repository.save(tmdbRepository.toMovie(details, MovieStatus.WANTED))
+            onSaved?.invoke()
+        } catch (_: Exception) { }
     }
 
     fun resetTmdb() { _tmdbState.value = TmdbUiState.Idle }
@@ -76,5 +114,9 @@ class MovieViewModel(application: Application) : AndroidViewModel(application) {
     fun setRating(movie: Movie, rating: Int) = save(movie.copy(rating = rating.coerceIn(1, 5)))
     fun delete(movie: Movie, onDeleted: (() -> Unit)? = null) = viewModelScope.launch {
         repository.delete(movie); onDeleted?.invoke()
+    }
+    fun restoreMovies(restored: List<Movie>, onDone: (() -> Unit)? = null) = viewModelScope.launch {
+        repository.replaceAll(restored)
+        onDone?.invoke()
     }
 }

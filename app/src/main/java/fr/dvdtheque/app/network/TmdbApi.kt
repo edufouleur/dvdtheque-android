@@ -22,4 +22,34 @@ interface TmdbApi {
         @Query("language") language: String = "fr-FR",
         @Query("append_to_response") appendToResponse: String = "credits"
     ): TmdbMovieDetails
+
+    @GET("movie/now_playing")
+    suspend fun nowPlaying(
+        @Header("Authorization") authorization: String,
+        @Query("language") language: String = "fr-FR",
+        @Query("region") region: String = "FR",
+        @Query("page") page: Int = 1
+    ): TmdbSearchResponse
+
+    @GET("movie/popular")
+    suspend fun popular(
+        @Header("Authorization") authorization: String,
+        @Query("language") language: String = "fr-FR",
+        @Query("region") region: String = "FR",
+        @Query("page") page: Int = 1
+    ): TmdbSearchResponse
+
+    @GET("movie/{movieId}/recommendations")
+    suspend fun recommendations(
+        @Header("Authorization") authorization: String,
+        @Path("movieId") movieId: Int,
+        @Query("language") language: String = "fr-FR",
+        @Query("page") page: Int = 1
+    ): TmdbSearchResponse
+
+    @GET("movie/{movieId}/release_dates")
+    suspend fun releaseDates(
+        @Header("Authorization") authorization: String,
+        @Path("movieId") movieId: Int
+    ): TmdbReleaseDatesResponse
 }

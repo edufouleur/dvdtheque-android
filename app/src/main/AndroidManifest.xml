@@ -6,7 +6,7 @@
         android:allowBackup="true"
         android:label="Reelio"
         android:supportsRtl="true"
-        android:theme="@style/Theme.DVDtheque">
+        android:theme="@style/Theme.Reelio">
         <activity
             android:name=".MainActivity"
             android:exported="true">

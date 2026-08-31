@@ -1,30 +1,29 @@
-# Reelio 1.3
+# Reelio 1.5
 
-Application Android Kotlin + Jetpack Compose pour gérer une collection de DVD et une liste de souhaits.
+Application Android personnelle de gestion de films, avec interface **Cinéma Premium**.
 
-## Nouveautés 1.3
-- Interface sombre et bibliothèque visuelle avec affiches.
-- Recherche automatique TMDB en français.
-- Notes personnelles de 1 à 5 étoiles.
-- Statut Vu / Pas vu.
-- Souhaits et passage vers la collection.
-- « Que regarder ce soir ? » : tirage au hasard parmi les films non vus.
-- « Continuer une saga » : suggestion du titre suivant lorsqu'une saga connue est reconnue.
-- Ordres de visionnage : Marvel (films + séries), Star Wars, Harry Potter et Le Seigneur des Anneaux.
-- Ordre chronologique ou ordre de sortie pour Marvel.
-- Statistiques de collection.
-- Aucun module de prêt de DVD.
+## Nouveautés 1.5
 
-## TMDB
-Dans GitHub : Settings > Secrets and variables > Actions > New repository secret.
-Créer le secret `TMDB_TOKEN` avec l'API Read Access Token de TMDB.
+- Nom **Reelio** affiché en haut à gauche de chaque écran.
+- Style de boutons **Cinéma Premium**.
+- Thèmes **Auto / Clair / Sombre**. Le mode Auto suit uniquement l'heure du téléphone (clair le jour, sombre la nuit).
+- Couleur d'accentuation : palette étendue de 26 nuances, du carmin au rose poudré, en passant par orange, ambre, jaune, verts, turquoise, cyan, bleus, indigo, violet, lavande et magenta.
+- Écran **Souhaits** enrichi : Mes souhaits, Au cinéma, Pour vous, DVD/Blu-ray.
+- Suggestions « Pour vous » basées sur un film TMDB déjà présent dans la bibliothèque lorsque possible.
+- Détection TMDB des sorties physiques françaises (type de sortie physique).
+- Informations de saga directement dans la fiche film.
+- « Que regarder ce soir ? » : **Aléatoire**, continuer une saga, ordre de visionnage.
+- Guides Marvel, Star Wars, Harry Potter et Le Seigneur des Anneaux.
+- Statistiques supprimées.
+- Onglet **Paramètres** : apparence, sauvegarde/restauration JSON, export CSV et informations Reelio.
+- Migration Room conservant les anciennes données et ajoutant l'identifiant TMDB.
 
-## Compilation
-Le workflow `.github/workflows/build-apk.yml` compile automatiquement l'APK sur GitHub Actions.
-L'artefact final s'appelle `Reelio-APK` et contient `app-debug.apk`.
+## Compilation GitHub
 
-## Mise à jour de la base locale
-La version 1.3 ajoute le champ `watched` avec une migration Room 1 -> 2 pour conserver les films déjà enregistrés.
+Conserver le secret GitHub Actions `TMDB_TOKEN`, puis lancer le workflow **Compiler APK Reelio**.
+L'artefact produit s'appelle `Reelio-APK`.
 
-## Attribution TMDB
-Ce produit utilise l'API TMDB mais n'est ni approuvé ni certifié par TMDB.
+## Ajustements 1.5
+
+- Le libellé **« Au hasard »** est remplacé par **« Aléatoire »**.
+- La palette de couleur d'accentuation passe à 26 nuances et s'affiche en grille dans Paramètres.

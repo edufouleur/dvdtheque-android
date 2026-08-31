@@ -35,3 +35,13 @@ data class TmdbGenre(val id: Int, val name: String)
 data class TmdbCredits(val cast: List<TmdbCast> = emptyList(), val crew: List<TmdbCrew> = emptyList())
 data class TmdbCast(val id: Int, val name: String, val order: Int = 0)
 data class TmdbCrew(val id: Int, val name: String, val job: String = "")
+
+data class TmdbReleaseDatesResponse(val results: List<TmdbCountryRelease> = emptyList())
+data class TmdbCountryRelease(
+    @SerializedName("iso_3166_1") val country: String = "",
+    @SerializedName("release_dates") val releaseDates: List<TmdbReleaseDate> = emptyList()
+)
+data class TmdbReleaseDate(
+    @SerializedName("release_date") val date: String = "",
+    val type: Int = 0
+)

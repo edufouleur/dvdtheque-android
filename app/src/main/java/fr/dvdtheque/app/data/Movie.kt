@@ -22,7 +22,8 @@ data class Movie(
     val discCount: Int? = null,
     val location: String = "",
     val addedAt: Long = System.currentTimeMillis(),
-    val watched: Boolean = false
+    val watched: Boolean = false,
+    val tmdbId: Int? = null
 )
 
 enum class MovieStatus { OWNED, WANTED }
