@@ -24,7 +24,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -52,6 +54,7 @@ private const val ADD = "add"
 private const val WATCH = "watch"
 private const val SETTINGS = "settings"
 private const val DETAIL = "detail"
+private val ReelioBrandPurple = Color(0xFF9D5CFF)
 
 private enum class ReelioThemeMode(val label: String) { AUTO("Auto"), LIGHT("Clair"), DARK("Sombre") }
 
@@ -114,18 +117,20 @@ fun DvdthequeApp(vm: MovieViewModel = viewModel()) {
             primary = accent.color,
             onPrimary = accent.onColor,
             secondary = accent.color,
-            background = Color(0xFF090A0E),
-            surface = Color(0xFF111318),
-            surfaceVariant = Color(0xFF1A1D24)
+            background = Color(0xFF07090D),
+            surface = Color(0xFF0F1218),
+            surfaceVariant = Color(0xFF171B23),
+            outline = Color(0xFF2B313D)
         )
     } else {
         lightColorScheme(
             primary = accent.color,
             onPrimary = accent.onColor,
             secondary = accent.color,
-            background = Color(0xFFF6F7FA),
-            surface = Color.White,
-            surfaceVariant = Color(0xFFECEEF3)
+            background = Color(0xFFF4F5F8),
+            surface = Color(0xFFFFFFFF),
+            surfaceVariant = Color(0xFFE9ECF2),
+            outline = Color(0xFFD4D8E1)
         )
     }
 
@@ -171,20 +176,56 @@ fun DvdthequeApp(vm: MovieViewModel = viewModel()) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ReelioTopBar(screen: String, onBack: (() -> Unit)? = null, actions: @Composable RowScope.() -> Unit = {}) {
+private fun ReelioTopBar(
+    screen: String,
+    onBack: (() -> Unit)? = null,
+    actions: @Composable RowScope.() -> Unit = {}
+) {
     TopAppBar(
+        colors = TopAppBarDefaults.topAppBarColors(
+            containerColor = MaterialTheme.colorScheme.background,
+            scrolledContainerColor = MaterialTheme.colorScheme.background
+        ),
         navigationIcon = {
-            if (onBack != null) IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, "Retour") }
+            if (onBack != null) {
+                IconButton(onClick = onBack) {
+                    Icon(Icons.Default.ArrowBack, "Retour")
+                }
+            }
         },
         title = {
-            Column {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primary, modifier = Modifier.size(30.dp)) {
-                        Box(contentAlignment = Alignment.Center) { Icon(Icons.Default.MovieFilter, null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(20.dp)) }
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Surface(
+                    shape = CircleShape,
+                    color = ReelioBrandPurple,
+                    modifier = Modifier.size(34.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            Icons.Default.MovieFilter,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(22.dp)
+                        )
                     }
-                    Text("Reelio", fontWeight = FontWeight.Bold)
                 }
-                Text(screen, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Column {
+                    Text(
+                        "Reelio",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                    if (screen != "Bibliothèque") {
+                        Text(
+                            screen,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
             }
         },
         actions = actions
@@ -192,81 +233,228 @@ private fun ReelioTopBar(screen: String, onBack: (() -> Unit)? = null, actions: 
 }
 
 @Composable
-private fun MainBottomBar(current: String, onNavigate: (String) -> Unit, onAdd: () -> Unit) {
-    NavigationBar {
-        NavigationBarItem(selected = current == LIBRARY, onClick = { onNavigate(LIBRARY) }, icon = { Icon(Icons.Default.VideoLibrary, null) }, label = { Text("Bibliothèque") })
-        NavigationBarItem(selected = current == WISHLIST, onClick = { onNavigate(WISHLIST) }, icon = { Icon(Icons.Default.FavoriteBorder, null) }, label = { Text("Souhaits") })
-        NavigationBarItem(selected = false, onClick = onAdd, icon = { Icon(Icons.Default.AddCircle, null, tint = MaterialTheme.colorScheme.primary) }, label = { Text("Ajouter") })
-        NavigationBarItem(selected = current == WATCH, onClick = { onNavigate(WATCH) }, icon = { Icon(Icons.Default.Casino, null) }, label = { Text("Ce soir") })
-        NavigationBarItem(selected = current == SETTINGS, onClick = { onNavigate(SETTINGS) }, icon = { Icon(Icons.Default.Settings, null) }, label = { Text("Paramètres") })
+private fun ScreenHeading(title: String, subtitle: String? = null, modifier: Modifier = Modifier) {
+    Column(modifier) {
+        Text(title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold)
+        if (!subtitle.isNullOrBlank()) {
+            Spacer(Modifier.height(2.dp))
+            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
     }
 }
 
 @Composable
-private fun PremiumButton(text: String, icon: @Composable (() -> Unit)? = null, onClick: () -> Unit, modifier: Modifier = Modifier) {
+private fun MainBottomBar(current: String, onNavigate: (String) -> Unit, onAdd: () -> Unit) {
+    NavigationBar(
+        containerColor = MaterialTheme.colorScheme.surface,
+        tonalElevation = 0.dp
+    ) {
+        NavigationBarItem(
+            selected = current == LIBRARY,
+            onClick = { onNavigate(LIBRARY) },
+            icon = { Icon(Icons.Default.VideoLibrary, null) },
+            label = { Text("Bibliothèque") }
+        )
+        NavigationBarItem(
+            selected = current == WISHLIST,
+            onClick = { onNavigate(WISHLIST) },
+            icon = { Icon(if (current == WISHLIST) Icons.Default.Favorite else Icons.Default.FavoriteBorder, null) },
+            label = { Text("Souhaits") }
+        )
+        NavigationBarItem(
+            selected = false,
+            onClick = onAdd,
+            icon = {
+                Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.primary,
+                    shadowElevation = 8.dp,
+                    modifier = Modifier.size(48.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(Icons.Default.Add, "Ajouter", tint = MaterialTheme.colorScheme.onPrimary)
+                    }
+                }
+            },
+            label = { Text("") }
+        )
+        NavigationBarItem(
+            selected = current == WATCH,
+            onClick = { onNavigate(WATCH) },
+            icon = { Icon(Icons.Default.Casino, null) },
+            label = { Text("Ce soir") }
+        )
+        NavigationBarItem(
+            selected = current == SETTINGS,
+            onClick = { onNavigate(SETTINGS) },
+            icon = { Icon(Icons.Default.Settings, null) },
+            label = { Text("Paramètres") }
+        )
+    }
+}
+
+@Composable
+private fun PremiumButton(
+    text: String,
+    icon: @Composable (() -> Unit)? = null,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     Button(
         onClick = onClick,
-        modifier = modifier.heightIn(min = 50.dp),
-        shape = RoundedCornerShape(14.dp),
-        contentPadding = PaddingValues(horizontal = 18.dp, vertical = 12.dp)
+        modifier = modifier
+            .heightIn(min = 52.dp)
+            .shadow(8.dp, RoundedCornerShape(16.dp)),
+        shape = RoundedCornerShape(16.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary
+        ),
+        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 13.dp)
     ) {
-        if (icon != null) { icon(); Spacer(Modifier.width(8.dp)) }
-        Text(text.uppercase(), fontWeight = FontWeight.Bold)
+        if (icon != null) {
+            icon()
+            Spacer(Modifier.width(8.dp))
+        }
+        Text(text.uppercase(), fontWeight = FontWeight.ExtraBold)
     }
 }
 
 @Composable
-private fun PremiumOutlineButton(text: String, icon: @Composable (() -> Unit)? = null, onClick: () -> Unit, modifier: Modifier = Modifier) {
+private fun PremiumOutlineButton(
+    text: String,
+    icon: @Composable (() -> Unit)? = null,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     OutlinedButton(
         onClick = onClick,
-        modifier = modifier.heightIn(min = 46.dp),
-        shape = RoundedCornerShape(14.dp),
-        border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary)
+        modifier = modifier.heightIn(min = 48.dp),
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary),
+        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary)
     ) {
-        if (icon != null) { icon(); Spacer(Modifier.width(8.dp)) }
-        Text(text, fontWeight = FontWeight.SemiBold)
+        if (icon != null) {
+            icon()
+            Spacer(Modifier.width(8.dp))
+        }
+        Text(text, fontWeight = FontWeight.Bold)
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun LibraryScreen(vm: MovieViewModel, onOpen: (Long) -> Unit, onAdd: () -> Unit, onNavigate: (String) -> Unit) {
+private fun LibraryScreen(
+    vm: MovieViewModel,
+    onOpen: (Long) -> Unit,
+    onAdd: () -> Unit,
+    onNavigate: (String) -> Unit
+) {
     val all by vm.movies.collectAsStateWithLifecycle()
     val query by vm.query.collectAsStateWithLifecycle()
     val sort by vm.sort.collectAsStateWithLifecycle()
     var watchedFilter by remember { mutableStateOf<Boolean?>(null) }
     var showSort by remember { mutableStateOf(false) }
-    val movies = all.filter { it.status == MovieStatus.OWNED && (watchedFilter == null || it.watched == watchedFilter) }
+    var searchOpen by remember { mutableStateOf(false) }
+
+    val owned = all.filter { it.status == MovieStatus.OWNED }
+    val movies = owned.filter { watchedFilter == null || it.watched == watchedFilter }
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             ReelioTopBar("Bibliothèque", actions = {
-                IconButton(onClick = { showSort = true }) { Icon(Icons.Default.Sort, "Trier") }
+                IconButton(onClick = { searchOpen = !searchOpen }) {
+                    Icon(Icons.Default.Search, "Rechercher")
+                }
+                IconButton(onClick = { showSort = true }) {
+                    Icon(Icons.Default.Tune, "Filtrer et trier")
+                }
                 DropdownMenu(expanded = showSort, onDismissRequest = { showSort = false }) {
                     MovieSort.entries.forEach { option ->
-                        DropdownMenuItem(text = { Text(sortLabel(option)) }, onClick = { vm.setSort(option); showSort = false }, leadingIcon = { if (sort == option) Icon(Icons.Default.Check, null) })
+                        DropdownMenuItem(
+                            text = { Text(sortLabel(option)) },
+                            onClick = {
+                                vm.setSort(option)
+                                showSort = false
+                            },
+                            leadingIcon = {
+                                if (sort == option) Icon(Icons.Default.Check, null)
+                            }
+                        )
                     }
                 }
             })
         },
         bottomBar = { MainBottomBar(LIBRARY, onNavigate, onAdd) }
     ) { padding ->
-        Column(Modifier.padding(padding).fillMaxSize()) {
-            SearchField(query, vm::setQuery)
-            Row(Modifier.padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(selected = watchedFilter == null, onClick = { watchedFilter = null }, label = { Text("Tous (${all.count { it.status == MovieStatus.OWNED }})") })
-                FilterChip(selected = watchedFilter == true, onClick = { watchedFilter = true }, label = { Text("Vus") })
-                FilterChip(selected = watchedFilter == false, onClick = { watchedFilter = false }, label = { Text("Pas vus") })
+        Column(
+            Modifier
+                .padding(padding)
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+        ) {
+            if (searchOpen || query.isNotBlank()) {
+                SearchField(query, vm::setQuery)
             }
+
+            Row(
+                Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                FilterChip(
+                    selected = watchedFilter == null,
+                    onClick = { watchedFilter = null },
+                    label = { Text("Tous (${owned.size})") }
+                )
+                FilterChip(
+                    selected = watchedFilter == true,
+                    onClick = { watchedFilter = true },
+                    label = { Text("Vus") }
+                )
+                FilterChip(
+                    selected = watchedFilter == false,
+                    onClick = { watchedFilter = false },
+                    label = { Text("Pas vus") }
+                )
+            }
+
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "${movies.size} film${if (movies.size > 1) "s" else ""}",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    "Tri : ${sortLabel(sort)}",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
             if (movies.isEmpty()) {
-                EmptyState("Aucun film dans la bibliothèque", "Ajoute ton premier film pour commencer.", onAdd)
+                EmptyState(
+                    "Aucun film dans la bibliothèque",
+                    "Ajoute ton premier film pour commencer.",
+                    onAdd
+                )
             } else {
                 LazyVerticalGrid(
-                    columns = GridCells.Adaptive(145.dp),
-                    contentPadding = PaddingValues(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) { gridItems(movies, key = { it.id }) { movie -> MovieCard(movie, onOpen) } }
+                    columns = GridCells.Adaptive(108.dp),
+                    contentPadding = PaddingValues(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    gridItems(movies, key = { it.id }) { movie ->
+                        MovieCard(movie, onOpen)
+                    }
+                }
             }
         }
     }
@@ -288,13 +476,60 @@ private fun SearchField(query: String, onValueChange: (String) -> Unit) {
 
 @Composable
 private fun MovieCard(movie: Movie, onOpen: (Long) -> Unit) {
-    Card(onClick = { onOpen(movie.id) }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
+    Card(
+        onClick = { onOpen(movie.id) },
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = .65f))
+    ) {
         Column {
-            Poster(movie.posterUrl, movie.title, Modifier.fillMaxWidth().aspectRatio(2f / 3f))
-            Column(Modifier.padding(10.dp)) {
-                Text(movie.title, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                Text(listOfNotNull(movie.year?.toString(), movie.rating?.let { "★ $it/5" }).joinToString(" • "), style = MaterialTheme.typography.bodySmall)
-                Text(if (movie.watched) "✓ Vu" else "○ Pas vu", style = MaterialTheme.typography.labelSmall, color = if (movie.watched) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+            Box {
+                Poster(
+                    movie.posterUrl,
+                    movie.title,
+                    Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(2f / 3f)
+                )
+                Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = .88f),
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(6.dp)
+                        .size(26.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            if (movie.status == MovieStatus.WANTED) Icons.Default.Favorite else if (movie.watched) Icons.Default.CheckCircle else Icons.Default.Circle,
+                            contentDescription = null,
+                            tint = if (movie.status == MovieStatus.WANTED || movie.watched) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+            }
+            Column(Modifier.padding(horizontal = 8.dp, vertical = 8.dp)) {
+                Text(
+                    movie.title.uppercase(),
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.ExtraBold,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    movie.year?.toString().orEmpty(),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    if (movie.rating != null) "★ ${movie.rating}/5" else if (movie.watched) "✓ Vu" else "○ À voir",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (movie.rating != null) Color(0xFFFFC928) else MaterialTheme.colorScheme.primary
+                )
             }
         }
     }
@@ -302,8 +537,35 @@ private fun MovieCard(movie: Movie, onOpen: (Long) -> Unit) {
 
 @Composable
 private fun Poster(url: String, title: String, modifier: Modifier) {
-    if (url.isNotBlank()) AsyncImage(model = url, contentDescription = title, modifier = modifier.clip(RoundedCornerShape(12.dp)), contentScale = ContentScale.Crop)
-    else Box(modifier.background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) { Icon(Icons.Default.Movie, null, modifier = Modifier.size(48.dp)) }
+    if (url.isNotBlank()) {
+        AsyncImage(
+            model = url,
+            contentDescription = title,
+            modifier = modifier.clip(RoundedCornerShape(12.dp)),
+            contentScale = ContentScale.Crop
+        )
+    } else {
+        Box(
+            modifier
+                .clip(RoundedCornerShape(12.dp))
+                .background(
+                    Brush.verticalGradient(
+                        listOf(
+                            MaterialTheme.colorScheme.surfaceVariant,
+                            MaterialTheme.colorScheme.surface
+                        )
+                    )
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                Icons.Default.Movie,
+                contentDescription = null,
+                modifier = Modifier.size(48.dp),
+                tint = MaterialTheme.colorScheme.primary
+            )
+        }
+    }
 }
 
 @Composable
@@ -494,44 +756,190 @@ private fun ManualAddTab(vm: MovieViewModel, onSaved: () -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun DetailScreen(id: Long, vm: MovieViewModel, onBack: () -> Unit, onWatchGuide: () -> Unit) {
+private fun DetailScreen(
+    id: Long,
+    vm: MovieViewModel,
+    onBack: () -> Unit,
+    onWatchGuide: () -> Unit
+) {
     val movie by vm.movie(id).collectAsStateWithLifecycle(initialValue = null)
     val all by vm.movies.collectAsStateWithLifecycle()
     val current = movie
-    Scaffold(topBar = { ReelioTopBar(current?.title ?: "Fiche film", onBack) }) { padding ->
-        if (current == null) Box(Modifier.padding(padding).fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-        else LazyColumn(Modifier.padding(padding).fillMaxSize(), contentPadding = PaddingValues(14.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            item {
-                Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                    Poster(current.posterUrl, current.title, Modifier.width(125.dp).height(188.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(current.title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                        Text(listOfNotNull(current.year?.toString(), current.durationMinutes?.let { "${it / 60}h ${it % 60}min" }, current.genre.takeIf { it.isNotBlank() }).joinToString(" • "))
-                        Spacer(Modifier.height(10.dp))
-                        RatingRow(current.rating ?: 0) { vm.setRating(current, it) }
-                        AssistChip(onClick = { vm.setWatched(current, !current.watched) }, label = { Text(if (current.watched) "✓ Déjà vu" else "○ Pas encore vu") })
+
+    Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
+        topBar = {
+            ReelioTopBar(
+                current?.title ?: "Fiche film",
+                onBack,
+                actions = {
+                    IconButton(onClick = { }) { Icon(Icons.Default.Share, "Partager") }
+                    IconButton(onClick = { }) { Icon(Icons.Default.MoreVert, "Plus") }
+                }
+            )
+        }
+    ) { padding ->
+        if (current == null) {
+            Box(
+                Modifier.padding(padding).fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) { CircularProgressIndicator() }
+        } else {
+            LazyColumn(
+                Modifier.padding(padding).fillMaxSize(),
+                contentPadding = PaddingValues(bottom = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                item {
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .height(245.dp)
+                    ) {
+                        if (current.posterUrl.isNotBlank()) {
+                            AsyncImage(
+                                model = current.posterUrl,
+                                contentDescription = current.title,
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop,
+                                alpha = .34f
+                            )
+                        }
+                        Box(
+                            Modifier.fillMaxSize().background(
+                                Brush.verticalGradient(
+                                    listOf(
+                                        Color.Transparent,
+                                        MaterialTheme.colorScheme.background.copy(alpha = .35f),
+                                        MaterialTheme.colorScheme.background
+                                    )
+                                )
+                            )
+                        )
+                        Row(
+                            modifier = Modifier
+                                .align(Alignment.BottomStart)
+                                .padding(horizontal = 16.dp, vertical = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                            verticalAlignment = Alignment.Bottom
+                        ) {
+                            Poster(
+                                current.posterUrl,
+                                current.title,
+                                Modifier.width(116.dp).height(174.dp)
+                            )
+                            Column(
+                                Modifier.weight(1f).padding(bottom = 8.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text(
+                                    current.title,
+                                    style = MaterialTheme.typography.headlineSmall,
+                                    fontWeight = FontWeight.ExtraBold
+                                )
+                                Text(
+                                    listOfNotNull(
+                                        current.year?.toString(),
+                                        current.durationMinutes?.let { "${it / 60}h ${it % 60}min" },
+                                        current.genre.takeIf { it.isNotBlank() }
+                                    ).joinToString(" • "),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                RatingRow(current.rating ?: 0) { vm.setRating(current, it) }
+                                AssistChip(
+                                    onClick = { vm.setWatched(current, !current.watched) },
+                                    label = { Text(if (current.watched) "✓ Déjà vu" else "○ Pas encore vu") }
+                                )
+                            }
+                        }
                     }
                 }
-            }
-            item {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    PremiumOutlineButton(if (current.status == MovieStatus.OWNED) "Vers souhaits" else "J'ai acheté", { Icon(Icons.Default.Favorite, null) }, { vm.toggleStatus(current) }, Modifier.weight(1f))
-                    PremiumOutlineButton("Ce soir", { Icon(Icons.Default.PlayArrow, null) }, onWatchGuide, Modifier.weight(1f))
+
+                item {
+                    Row(
+                        Modifier.padding(horizontal = 14.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        PremiumOutlineButton(
+                            "Modifier",
+                            { Icon(Icons.Default.Edit, null) },
+                            { },
+                            Modifier.weight(1f)
+                        )
+                        PremiumOutlineButton(
+                            if (current.status == MovieStatus.OWNED) "Souhait" else "Acheté",
+                            { Icon(Icons.Default.Favorite, null) },
+                            { vm.toggleStatus(current) },
+                            Modifier.weight(1f)
+                        )
+                        PremiumOutlineButton(
+                            "Ce soir",
+                            { Icon(Icons.Default.PlayArrow, null) },
+                            onWatchGuide,
+                            Modifier.weight(1f)
+                        )
+                    }
+                }
+
+                if (current.synopsis.isNotBlank()) {
+                    item {
+                        PremiumInfoCard("Synopsis") {
+                            Text(current.synopsis, style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
+                }
+                if (current.director.isNotBlank() || current.actors.isNotBlank()) {
+                    item {
+                        PremiumInfoCard("Casting & équipe") {
+                            if (current.director.isNotBlank()) InfoLine("Réalisation", current.director)
+                            if (current.actors.isNotBlank()) InfoLine("Acteurs", current.actors)
+                        }
+                    }
+                }
+                if (current.edition.isNotBlank() || current.discCount != null || current.location.isNotBlank()) {
+                    item {
+                        PremiumInfoCard("Informations édition") {
+                            if (current.edition.isNotBlank()) Text("Support / édition : ${current.edition}")
+                            current.discCount?.let { Text("Disques : $it") }
+                            if (current.location.isNotBlank()) Text("Emplacement : ${current.location}")
+                        }
+                    }
+                }
+                sagaFor(current)?.let { guide ->
+                    item {
+                        Column(Modifier.padding(horizontal = 14.dp)) {
+                            SagaSection(guide, all)
+                        }
+                    }
+                }
+                item {
+                    PremiumOutlineButton(
+                        "Supprimer",
+                        { Icon(Icons.Default.Delete, null) },
+                        { vm.delete(current, onBack) },
+                        Modifier.fillMaxWidth().padding(horizontal = 14.dp)
+                    )
                 }
             }
-            if (current.director.isNotBlank()) item { InfoLine("Réalisation", current.director) }
-            if (current.actors.isNotBlank()) item { InfoLine("Acteurs", current.actors) }
-            if (current.synopsis.isNotBlank()) item { InfoLine("Synopsis", current.synopsis) }
-            if (current.edition.isNotBlank() || current.discCount != null || current.location.isNotBlank()) item {
-                Card(shape = RoundedCornerShape(16.dp)) { Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("Informations édition", fontWeight = FontWeight.Bold)
-                    if (current.edition.isNotBlank()) Text("Édition : ${current.edition}")
-                    current.discCount?.let { Text("Disques : $it") }
-                    if (current.location.isNotBlank()) Text("Emplacement : ${current.location}")
-                } }
-            }
-            sagaFor(current)?.let { guide -> item { SagaSection(guide, all) } }
-            item { PremiumOutlineButton("Supprimer", { Icon(Icons.Default.Delete, null) }, { vm.delete(current, onBack) }, Modifier.fillMaxWidth()) }
+        }
+    }
+}
+
+@Composable
+private fun PremiumInfoCard(title: String, content: @Composable ColumnScope.() -> Unit) {
+    Card(
+        modifier = Modifier.padding(horizontal = 14.dp),
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = .55f))
+    ) {
+        Column(
+            Modifier.fillMaxWidth().padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold)
+            content()
         }
     }
 }
@@ -572,7 +980,12 @@ private fun SagaSection(guide: UniverseGuide, all: List<Movie>) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun WatchTonightScreen(vm: MovieViewModel, onOpen: (Long) -> Unit, onAdd: () -> Unit, onNavigate: (String) -> Unit) {
+private fun WatchTonightScreen(
+    vm: MovieViewModel,
+    onOpen: (Long) -> Unit,
+    onAdd: () -> Unit,
+    onNavigate: (String) -> Unit
+) {
     val all by vm.movies.collectAsStateWithLifecycle()
     val owned = all.filter { it.status == MovieStatus.OWNED }
     var tab by remember { mutableIntStateOf(0) }
@@ -580,33 +993,110 @@ private fun WatchTonightScreen(vm: MovieViewModel, onOpen: (Long) -> Unit, onAdd
     var universeIndex by remember { mutableIntStateOf(0) }
     var chronological by remember { mutableStateOf(true) }
 
-    Scaffold(topBar = { ReelioTopBar("Que regarder ce soir ?") }, bottomBar = { MainBottomBar(WATCH, onNavigate, onAdd) }) { padding ->
-        Column(Modifier.padding(padding).fillMaxSize()) {
-            TabRow(selectedTabIndex = tab) {
-                Tab(tab == 0, { tab = 0 }, text = { Text("Aléatoire") })
-                Tab(tab == 1, { tab = 1 }, text = { Text("Continuer une saga") })
-                Tab(tab == 2, { tab = 2 }, text = { Text("Ordre de visionnage") })
+    Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
+        topBar = { ReelioTopBar("Que regarder ce soir ?") },
+        bottomBar = { MainBottomBar(WATCH, onNavigate, onAdd) }
+    ) { padding ->
+        Column(
+            Modifier.padding(padding).fillMaxSize(),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            ScreenHeading(
+                "Que regarder ce soir ?",
+                "Trouvons le film parfait pour votre soirée",
+                Modifier.padding(horizontal = 14.dp)
+            )
+
+            SingleChoiceSegmentedButtonRow(
+                Modifier.fillMaxWidth().padding(horizontal = 12.dp)
+            ) {
+                listOf("Aléatoire", "Continuer", "Ordre").forEachIndexed { index, label ->
+                    SegmentedButton(
+                        selected = tab == index,
+                        onClick = { tab = index },
+                        shape = SegmentedButtonDefaults.itemShape(index, 3),
+                        label = { Text(label, maxLines = 1) }
+                    )
+                }
             }
+
             when (tab) {
-                0 -> RandomWatchTab(owned, randomId, { randomId = owned.filter { !it.watched }.ifEmpty { owned }.randomOrNull()?.id }, onOpen)
+                0 -> RandomWatchTab(
+                    owned,
+                    randomId,
+                    { randomId = owned.filter { !it.watched }.ifEmpty { owned }.randomOrNull()?.id },
+                    onOpen
+                )
                 1 -> ContinueSagaTab(owned, all)
-                else -> WatchOrderTab(all, universeIndex, { universeIndex = it }, chronological, { chronological = it })
+                else -> WatchOrderTab(
+                    all,
+                    universeIndex,
+                    { universeIndex = it },
+                    chronological,
+                    { chronological = it }
+                )
             }
         }
     }
 }
 
 @Composable
-private fun RandomWatchTab(owned: List<Movie>, randomId: Long?, onPick: () -> Unit, onOpen: (Long) -> Unit) {
+private fun RandomWatchTab(
+    owned: List<Movie>,
+    randomId: Long?,
+    onPick: () -> Unit,
+    onOpen: (Long) -> Unit
+) {
     val picked = owned.firstOrNull { it.id == randomId }
-    Column(Modifier.fillMaxSize().padding(18.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        Text("Laisse Reelio choisir dans ta bibliothèque", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        if (picked != null) {
-            Poster(picked.posterUrl, picked.title, Modifier.width(210.dp).height(315.dp))
-            Text(picked.title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-            PremiumButton("Voir la fiche", { Icon(Icons.Default.PlayArrow, null) }, { onOpen(picked.id) }, Modifier.fillMaxWidth())
+    LazyColumn(
+        Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(14.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        item {
+            Card(
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary.copy(alpha = .16f)),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = .55f))
+            ) {
+                Column(
+                    Modifier.fillMaxWidth().padding(18.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(Icons.Default.Shuffle, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(34.dp))
+                    Text("ALÉATOIRE", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
+                    Text(
+                        "Un film choisi dans votre bibliothèque",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    PremiumButton(
+                        if (picked == null) "Choisir un film" else "Un autre film",
+                        { Icon(Icons.Default.Casino, null) },
+                        onPick,
+                        Modifier.fillMaxWidth()
+                    )
+                }
+            }
         }
-        PremiumOutlineButton(if (picked == null) "Choisir un film" else "Un autre film aléatoire", { Icon(Icons.Default.Casino, null) }, onPick, Modifier.fillMaxWidth())
+        if (picked != null) {
+            item {
+                Poster(picked.posterUrl, picked.title, Modifier.width(190.dp).height(285.dp))
+            }
+            item {
+                Text(picked.title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold)
+            }
+            item {
+                PremiumOutlineButton(
+                    "Voir la fiche",
+                    { Icon(Icons.Default.PlayArrow, null) },
+                    { onOpen(picked.id) },
+                    Modifier.fillMaxWidth()
+                )
+            }
+        }
     }
 }
 
@@ -671,80 +1161,220 @@ private fun SettingsScreen(
     val movies by vm.movies.collectAsStateWithLifecycle()
     val gson = remember { Gson() }
 
-    val backupLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+    val backupLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
         if (uri != null) runCatching {
-            context.contentResolver.openOutputStream(uri)?.bufferedWriter()?.use { it.write(gson.toJson(movies)) }
-        }.onSuccess { Toast.makeText(context, "Sauvegarde créée", Toast.LENGTH_SHORT).show() }
-            .onFailure { Toast.makeText(context, "Échec de la sauvegarde", Toast.LENGTH_SHORT).show() }
+            context.contentResolver.openOutputStream(uri)?.bufferedWriter()?.use {
+                it.write(gson.toJson(movies))
+            }
+        }.onSuccess {
+            Toast.makeText(context, "Sauvegarde créée", Toast.LENGTH_SHORT).show()
+        }.onFailure {
+            Toast.makeText(context, "Échec de la sauvegarde", Toast.LENGTH_SHORT).show()
+        }
     }
-    val restoreLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+
+    val restoreLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.GetContent()
+    ) { uri ->
         if (uri != null) runCatching {
-            val json = context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }.orEmpty()
+            val json = context.contentResolver.openInputStream(uri)
+                ?.bufferedReader()?.use { it.readText() }.orEmpty()
             val type = object : TypeToken<List<Movie>>() {}.type
             gson.fromJson<List<Movie>>(json, type) ?: emptyList()
-        }.onSuccess { restored -> vm.restoreMovies(restored) { Toast.makeText(context, "Collection restaurée", Toast.LENGTH_SHORT).show() } }
-            .onFailure { Toast.makeText(context, "Fichier de sauvegarde invalide", Toast.LENGTH_SHORT).show() }
+        }.onSuccess { restored ->
+            vm.restoreMovies(restored) {
+                Toast.makeText(context, "Collection restaurée", Toast.LENGTH_SHORT).show()
+            }
+        }.onFailure {
+            Toast.makeText(context, "Fichier de sauvegarde invalide", Toast.LENGTH_SHORT).show()
+        }
     }
-    val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
+
+    val exportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("text/csv")
+    ) { uri ->
         if (uri != null) runCatching {
             context.contentResolver.openOutputStream(uri)?.bufferedWriter()?.use { writer ->
                 writer.appendLine("Titre;Année;Réalisateur;Genre;Statut;Vu;Note;Emplacement")
-                movies.forEach { m -> writer.appendLine(listOf(m.title, m.year ?: "", m.director, m.genre, if (m.status == MovieStatus.OWNED) "Bibliothèque" else "Souhait", if (m.watched) "Oui" else "Non", m.rating ?: "", m.location).joinToString(";") { csvCell(it.toString()) }) }
+                movies.forEach { m ->
+                    writer.appendLine(
+                        listOf(
+                            m.title,
+                            m.year ?: "",
+                            m.director,
+                            m.genre,
+                            if (m.status == MovieStatus.OWNED) "Bibliothèque" else "Souhait",
+                            if (m.watched) "Oui" else "Non",
+                            m.rating ?: "",
+                            m.location
+                        ).joinToString(";") { csvCell(it.toString()) }
+                    )
+                }
             }
-        }.onSuccess { Toast.makeText(context, "Export CSV créé", Toast.LENGTH_SHORT).show() }
-            .onFailure { Toast.makeText(context, "Échec de l'export", Toast.LENGTH_SHORT).show() }
+        }.onSuccess {
+            Toast.makeText(context, "Export CSV créé", Toast.LENGTH_SHORT).show()
+        }.onFailure {
+            Toast.makeText(context, "Échec de l'export", Toast.LENGTH_SHORT).show()
+        }
     }
 
-    Scaffold(topBar = { ReelioTopBar("Paramètres") }, bottomBar = { MainBottomBar(SETTINGS, onNavigate, onAdd) }) { padding ->
-        LazyColumn(Modifier.padding(padding).fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
-            item {
-                SettingsCard("🎨 Apparence") {
-                    Text("Thème", fontWeight = FontWeight.SemiBold)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        ReelioThemeMode.entries.forEach { mode -> FilterChip(selected = themeMode == mode, onClick = { onThemeChange(mode) }, label = { Text(mode.label) }) }
+    Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
+        topBar = {
+            ReelioTopBar(
+                "Paramètres",
+                actions = {
+                    IconButton(onClick = { }) {
+                        Icon(Icons.Default.MoreVert, "Menu")
                     }
-                    Text("Auto suit simplement l'heure du téléphone : clair le jour, sombre la nuit.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(Modifier.height(8.dp))
-                    Text("Couleur d'accentuation", fontWeight = FontWeight.SemiBold)
-                    Text("Choisis parmi une palette étendue de couleurs.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(Modifier.height(6.dp))
-                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        AccentChoice.entries.chunked(5).forEach { rowChoices ->
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                rowChoices.forEach { choice ->
-                                    Column(
-                                        horizontalAlignment = Alignment.CenterHorizontally,
-                                        modifier = Modifier.width(58.dp).clickable { onAccentChange(choice) }
-                                    ) {
-                                        Box(
-                                            Modifier
-                                                .size(if (accent == choice) 44.dp else 38.dp)
-                                                .background(choice.color, CircleShape),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            if (accent == choice) Icon(Icons.Default.Check, null, tint = choice.onColor)
-                                        }
-                                        Text(choice.label, style = MaterialTheme.typography.labelSmall, maxLines = 2)
+                }
+            )
+        },
+        bottomBar = { MainBottomBar(SETTINGS, onNavigate, onAdd) }
+    ) { padding ->
+        LazyColumn(
+            Modifier.padding(padding).fillMaxSize(),
+            contentPadding = PaddingValues(14.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            item {
+                ScreenHeading(
+                    "Paramètres",
+                    "Personnalisez Reelio et gérez vos données"
+                )
+            }
+
+            item {
+                SettingsCard("APPARENCE") {
+                    Text("Thème", fontWeight = FontWeight.Bold)
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        ReelioThemeMode.entries.forEach { mode ->
+                            val icon = when (mode) {
+                                ReelioThemeMode.LIGHT -> Icons.Default.LightMode
+                                ReelioThemeMode.DARK -> Icons.Default.DarkMode
+                                ReelioThemeMode.AUTO -> Icons.Default.Schedule
+                            }
+                            Card(
+                                onClick = { onThemeChange(mode) },
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(14.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = if (themeMode == mode)
+                                        MaterialTheme.colorScheme.primary.copy(alpha = .20f)
+                                    else MaterialTheme.colorScheme.surfaceVariant
+                                ),
+                                border = BorderStroke(
+                                    1.dp,
+                                    if (themeMode == mode) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.outline.copy(alpha = .45f)
+                                )
+                            ) {
+                                Column(
+                                    Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Icon(
+                                        icon,
+                                        null,
+                                        tint = if (themeMode == mode) MaterialTheme.colorScheme.primary
+                                        else MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Text(mode.label, fontWeight = FontWeight.Bold)
+                                    if (mode == ReelioThemeMode.AUTO) {
+                                        Text(
+                                            "Selon l'heure",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
                                     }
                                 }
-                                repeat(5 - rowChoices.size) { Spacer(Modifier.width(58.dp)) }
                             }
+                        }
+                    }
+
+                    Spacer(Modifier.height(8.dp))
+                    Text("Couleur d’accentuation", fontWeight = FontWeight.Bold)
+                    Text(
+                        "Choisissez une couleur pour les boutons, icônes et sélections.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    AccentChoice.entries.chunked(7).forEach { rowChoices ->
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            rowChoices.forEach { choice ->
+                                Box(
+                                    modifier = Modifier
+                                        .size(38.dp)
+                                        .clip(CircleShape)
+                                        .background(choice.color)
+                                        .clickable { onAccentChange(choice) },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    if (accent == choice) {
+                                        Icon(
+                                            Icons.Default.Check,
+                                            null,
+                                            tint = choice.onColor,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+                                }
+                            }
+                            repeat(7 - rowChoices.size) { Spacer(Modifier.size(38.dp)) }
                         }
                     }
                 }
             }
+
             item {
-                SettingsCard("💾 Données") {
-                    PremiumOutlineButton("Sauvegarder", { Icon(Icons.Default.Backup, null) }, { backupLauncher.launch("reelio-sauvegarde.json") }, Modifier.fillMaxWidth())
-                    PremiumOutlineButton("Restaurer", { Icon(Icons.Default.Restore, null) }, { restoreLauncher.launch("application/json") }, Modifier.fillMaxWidth())
-                    PremiumOutlineButton("Exporter la collection", { Icon(Icons.Default.FileDownload, null) }, { exportLauncher.launch("reelio-collection.csv") }, Modifier.fillMaxWidth())
+                SettingsCard("SAUVEGARDE & DONNÉES") {
+                    SettingsActionRow(
+                        icon = Icons.Default.Backup,
+                        title = "Sauvegarder maintenant",
+                        subtitle = "Crée une copie complète de votre collection"
+                    ) { backupLauncher.launch("reelio-sauvegarde.json") }
+
+                    SettingsActionRow(
+                        icon = Icons.Default.Restore,
+                        title = "Restaurer une sauvegarde",
+                        subtitle = "Récupère une sauvegarde Reelio"
+                    ) { restoreLauncher.launch("application/json") }
+
+                    SettingsActionRow(
+                        icon = Icons.Default.FileDownload,
+                        title = "Exporter mes données",
+                        subtitle = "Collection et souhaits au format CSV"
+                    ) { exportLauncher.launch("reelio-collection.csv") }
                 }
             }
+
             item {
-                SettingsCard("ℹ️ Informations sur Reelio") {
-                    Text("Reelio v${BuildConfig.VERSION_NAME}", fontWeight = FontWeight.Bold)
-                    Text("Votre collection, vos films, vos univers.")
-                    Text("Recherche, affiches et métadonnées fournies par TMDB. Reelio utilise l'API TMDB mais n'est ni approuvé ni certifié par TMDB.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                SettingsCard("À PROPOS") {
+                    SettingsActionRow(
+                        icon = Icons.Default.Info,
+                        title = "À propos de Reelio",
+                        subtitle = "Version ${BuildConfig.VERSION_NAME}"
+                    ) { }
+
+                    Text(
+                        "Reelio — Votre collection, vos films, vos univers.",
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        "Recherche, affiches et métadonnées fournies par TMDB. Reelio utilise l'API TMDB mais n'est ni approuvé ni certifié par TMDB.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
         }
@@ -752,11 +1382,59 @@ private fun SettingsScreen(
 }
 
 @Composable
-private fun SettingsCard(title: String, content: @Composable ColumnScope.() -> Unit) {
-    Card(shape = RoundedCornerShape(18.dp)) {
-        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            content()
+private fun SettingsActionRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit
+) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .62f)
+    ) {
+        Row(
+            Modifier.fillMaxWidth().padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Icon(icon, null, tint = MaterialTheme.colorScheme.primary)
+            Column(Modifier.weight(1f)) {
+                Text(title, fontWeight = FontWeight.Bold)
+                Text(
+                    subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Icon(Icons.Default.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
+private fun SettingsCard(
+    title: String,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            title,
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.ExtraBold,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Card(
+            shape = RoundedCornerShape(18.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = .55f))
+        ) {
+            Column(
+                Modifier.fillMaxWidth().padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                content()
+            }
         }
     }
 }
