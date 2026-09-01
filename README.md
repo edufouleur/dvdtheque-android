@@ -1,4 +1,4 @@
-# Reelio v1.8 — Cinéma Premium
+# Reelio v1.9 — Cinéma Premium
 
 Cette version intègre les corrections visuelles validées et la nouvelle recherche de film par image.
 
@@ -35,3 +35,22 @@ Le secret GitHub doit rester nommé `TMDB_TOKEN`.
 ## Compilation
 
 Le workflow `.github/workflows/build-apk.yml` compile l'APK de debug via GitHub Actions.
+
+
+## Reelio v1.9
+
+- Logo Reelio converti en ressource transparente et teintable : plus de carré coloré.
+- Icône pinceau du thème convertie en ressource transparente et teintable : plus de carré coloré.
+- Le pinceau Thème reste à 24 dp, comme l’icône Couleurs.
+- La couleur choisie dans Paramètres > Couleurs teinte aussi le logo Reelio.
+- Le pop-corn est supprimé de l’application.
+- « Ce soir » utilise désormais une icône de dé.
+- Le menu ⋮ de la fiche film reste actif : statut, vu/non vu, actualisation TMDB et suppression.
+
+## Recherche par image améliorée (v1.9)
+- OCR ML Kit avec classement des lignes selon leur taille et leur position sur la jaquette.
+- Filtrage renforcé des mentions parasites (DVD, Blu-ray, 4K, édition, bonus, etc.).
+- Jusqu'à 5 titres probables proposés à l'utilisateur.
+- Titre détecté toujours modifiable avant recherche TMDB.
+- Résultats TMDB présentés avec affiche et année avant validation.
+- Menu inactif de la page Paramètres supprimé.

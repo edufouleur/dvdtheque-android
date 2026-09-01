@@ -279,8 +279,8 @@ private fun MainBottomBar(current: String, onNavigate: (String) -> Unit, onAdd: 
             selected = current == WATCH,
             onClick = { onNavigate(WATCH) },
             icon = {
-                Image(
-                    painter = painterResource(R.drawable.popcorn_reelio),
+                Icon(
+                    Icons.Default.Casino,
                     contentDescription = "Ce soir",
                     modifier = Modifier.size(25.dp)
                 )
@@ -726,6 +726,7 @@ private fun PhotoSearchTab(vm: MovieViewModel, onSaved: () -> Unit) {
     var cameraUri by remember { mutableStateOf<Uri?>(null) }
     var detectedTitle by remember { mutableStateOf("") }
     var detectedText by remember { mutableStateOf("") }
+    var titleCandidates by remember { mutableStateOf<List<String>>(emptyList()) }
     var isReading by remember { mutableStateOf(false) }
 
     val recognizer = remember { TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS) }
@@ -741,14 +742,15 @@ private fun PhotoSearchTab(vm: MovieViewModel, onSaved: () -> Unit) {
             recognizer.process(image)
                 .addOnSuccessListener { result ->
                     detectedText = result.text.trim()
-                    detectedTitle = guessMovieTitle(result.text)
+                    titleCandidates = buildOcrTitleCandidates(result)
+                    detectedTitle = titleCandidates.firstOrNull().orEmpty()
                     isReading = false
                     if (detectedTitle.isNotBlank()) {
                         vm.searchTmdb(detectedTitle)
                     } else {
                         Toast.makeText(
                             context,
-                            "Aucun titre lisible. Essaie de cadrer la jaquette de plus près.",
+                            "Aucun titre fiable détecté. Cadre le titre de plus près et évite les reflets.",
                             Toast.LENGTH_LONG
                         ).show()
                     }
@@ -825,7 +827,7 @@ private fun PhotoSearchTab(vm: MovieViewModel, onSaved: () -> Unit) {
                                 fontWeight = FontWeight.ExtraBold
                             )
                             Text(
-                                "Photographie la jaquette ou choisis une image. Reelio lit le titre puis recherche automatiquement le film sur TMDB.",
+                                "Photographie la jaquette ou choisis une image. Reelio analyse les zones de texte, élimine les mentions DVD/Blu-ray et propose plusieurs titres probables avant la recherche TMDB.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -899,6 +901,34 @@ private fun PhotoSearchTab(vm: MovieViewModel, onSaved: () -> Unit) {
                         }
                     }
                 )
+            }
+            if (titleCandidates.size > 1) {
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            "Titres probables",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            "Si le premier choix n’est pas le bon, touche une autre proposition.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            items(titleCandidates.take(5)) { candidate ->
+                                FilterChip(
+                                    selected = candidate == detectedTitle,
+                                    onClick = {
+                                        detectedTitle = candidate
+                                        vm.searchTmdb(candidate)
+                                    },
+                                    label = { Text(candidate, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                                )
+                            }
+                        }
+                    }
+                }
             }
             if (detectedText.isNotBlank()) {
                 item {
@@ -975,32 +1005,82 @@ private fun createCameraImageUri(context: Context): Uri {
     )
 }
 
-private fun guessMovieTitle(rawText: String): String {
+private fun buildOcrTitleCandidates(result: com.google.mlkit.vision.text.Text): List<String> {
     val ignored = listOf(
-        "dvd", "blu-ray", "bluray", "ultra hd", "4k", "collector", "edition",
-        "édition", "disc", "disque", "video", "vidéo", "dolby", "digital",
-        "copyright", "www.", ".com", "interdit", "tout public"
+        "dvd", "blu-ray", "blu ray", "bluray", "ultra hd", "4k", "collector", "edition",
+        "édition", "disc", "disque", "video", "vidéo", "dolby", "digital", "copyright",
+        "www.", ".com", "interdit", "tout public", "version française", "vf", "vost",
+        "bonus", "nouveau", "film", "cinema", "cinéma"
     )
-    val candidates = rawText
-        .lineSequence()
-        .map { it.trim().replace(Regex("\\s+"), " ") }
-        .filter { line ->
-            line.length in 2..70 &&
-                line.count(Char::isLetter) >= 2 &&
-                line.count(Char::isDigit) <= line.length / 2 &&
-                ignored.none { noise -> line.contains(noise, ignoreCase = true) }
+
+    data class Candidate(val text: String, val score: Double, val top: Int)
+
+    fun clean(raw: String): String = raw
+        .replace(Regex("[|•·]+"), " ")
+        .replace(Regex("\\s+"), " ")
+        .trim(' ', '-', '_', ':', ';', '.', ',')
+
+    fun acceptable(text: String): Boolean {
+        if (text.length !in 2..70) return false
+        val letters = text.count(Char::isLetter)
+        if (letters < 2) return false
+        if (text.count(Char::isDigit) > text.length / 2) return false
+        if (ignored.any { noise -> text.equals(noise, true) || text.contains(noise, true) }) return false
+        return true
+    }
+
+    val imageHeight = result.textBlocks
+        .flatMap { it.lines }
+        .mapNotNull { it.boundingBox?.bottom }
+        .maxOrNull()
+        ?.coerceAtLeast(1) ?: 1
+
+    val lineCandidates = result.textBlocks.flatMap { block ->
+        block.lines.mapNotNull { line ->
+            val text = clean(line.text)
+            if (!acceptable(text)) return@mapNotNull null
+            val box = line.boundingBox
+            val height = box?.height()?.toDouble() ?: 1.0
+            val width = box?.width()?.toDouble() ?: text.length.toDouble()
+            val top = box?.top ?: imageHeight / 2
+            val relativeTop = top.toDouble() / imageHeight
+            val lettersOnly = text.filter(Char::isLetter)
+            val upperRatio = if (lettersOnly.isEmpty()) 0.0 else lettersOnly.count(Char::isUpperCase).toDouble() / lettersOnly.length
+            var score = height * 4.0 + width * 0.03 + text.count(Char::isLetter) * 1.5
+            if (text.length in 4..35) score += 24.0
+            if (text.split(" ").size in 1..6) score += 12.0
+            if (upperRatio >= 0.65) score += 12.0
+            if (relativeTop in 0.08..0.68) score += 10.0
+            Candidate(text, score, top)
         }
+    }
+
+    val combined = lineCandidates
+        .sortedBy { it.top }
+        .windowed(2, 1, partialWindows = false)
+        .mapNotNull { pair ->
+            val a = pair[0]
+            val b = pair[1]
+            val joined = clean("${a.text} ${b.text}")
+            if (!acceptable(joined) || joined.length > 55) null
+            else Candidate(joined, (a.score + b.score) * 0.72 + 10.0, minOf(a.top, b.top))
+        }
+
+    val fallback = result.text
+        .lineSequence()
+        .map(::clean)
+        .filter(::acceptable)
+        .map { Candidate(it, it.length.toDouble(), imageHeight / 2) }
         .toList()
 
-    return candidates.maxByOrNull { line ->
-        var score = line.count(Char::isLetter) * 2
-        if (line.length in 4..35) score += 20
-        val letters = line.filter(Char::isLetter)
-        if (letters.isNotEmpty() && letters.count(Char::isUpperCase).toDouble() >= letters.length * 0.7) score += 15
-        if (line.split(" ").size in 1..6) score += 10
-        score
-    }.orEmpty()
+    return (lineCandidates + combined + fallback)
+        .groupBy { it.text.lowercase() }
+        .map { (_, same) -> same.maxBy { it.score } }
+        .sortedByDescending { it.score }
+        .map { it.text }
+        .take(5)
 }
+
 
 @Composable
 private fun TmdbPreview(details: TmdbMovieDetails, vm: MovieViewModel, onSaved: () -> Unit) {
@@ -1372,11 +1452,17 @@ private fun WatchTonightScreen(
                     color = MaterialTheme.colorScheme.surfaceVariant,
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = .45f))
                 ) {
-                    Image(
-                        painter = painterResource(R.drawable.popcorn_reelio),
-                        contentDescription = "Pop-corn",
-                        modifier = Modifier.size(58.dp).padding(4.dp)
-                    )
+                    Box(
+                        modifier = Modifier.size(58.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.Default.Casino,
+                            contentDescription = "Dé",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(32.dp)
+                        )
+                    }
                 }
             }
 
@@ -1609,14 +1695,7 @@ private fun SettingsScreen(
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-            ReelioTopBar(
-                "Paramètres",
-                actions = {
-                    IconButton(onClick = { }) {
-                        Icon(Icons.Default.MoreVert, "Menu")
-                    }
-                }
-            )
+            ReelioTopBar("Paramètres")
         },
         bottomBar = { MainBottomBar(SETTINGS, onNavigate, onAdd) }
     ) { padding ->
