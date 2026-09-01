@@ -1,56 +1,29 @@
-# Reelio v1.9 — Cinéma Premium
+# Reelio v1.10 — Cinéma Premium
 
-Cette version intègre les corrections visuelles validées et la nouvelle recherche de film par image.
+Cette version consolide les corrections graphiques et fonctionnelles demandées.
 
-## Nouveautés principales
+## Nouveautés et corrections
 
-- Recherche par image dans l'écran Ajouter :
-  - prise de photo d'une jaquette avec l'appareil photo Android ;
-  - choix d'une image depuis la galerie ;
-  - lecture automatique du texte avec Google ML Kit Text Recognition ;
-  - détection d'un titre probable ;
-  - possibilité de corriger le titre reconnu ;
-  - recherche automatique du film sur TMDB puis ajout à la Bibliothèque ou aux Souhaits.
-- Le logo Reelio officiel fourni est utilisé dans l'application et prend la couleur d'accentuation sélectionnée.
-- La boîte de pop-corn fournie remplace l'ancienne icône de dé pour « Ce soir » dans la barre du bas.
-- Les intitulés « Souhaits » et « Ce soir » sont forcés sur une seule ligne.
-- Le bouton Modifier et le bouton Partager ont été supprimés de la fiche film.
-- Le menu ⋮ de la fiche film est actif : Bibliothèque/Souhaits, Vu/Non vu, actualisation TMDB et suppression avec confirmation.
-- Le bouton Aléatoire reprend le style validé, avec le sous-titre « Un film au hasard dans votre bibliothèque ».
-- Le pinceau de Thème utilise le visuel fourni et a la même taille que l'icône Couleurs.
-- Thème : Auto / Clair / Sombre.
-- Palette de 12 couleurs conservée.
-- « À propos de Reelio » et le crédit « by ED » sont conservés.
+- Nouvelle icône officielle du lanceur Android : bobine violette, fond noir et cadre violet lumineux, sans texte.
+- Logo Reelio interne corrigé avec transparence réelle : plus de carré coloré.
+- Le logo Reelio interne suit la couleur choisie dans **Paramètres > Couleurs**.
+- Icône **Thème** corrigée avec un pinceau transparent et tintable, à la même taille que l'icône **Couleurs**.
+- Suppression totale du pop-corn dans l'application.
+- **Ce soir** utilise une icône de dé et son libellé reste sur une seule ligne.
+- **Souhaits** reste sur une seule ligne dans la barre du bas.
+- Le bouton **Aléatoire** sélectionne un film au hasard dans la bibliothèque.
+- Fiche film : boutons **Modifier** et **Partager** absents.
+- Fiche film : menu **⋮** actif avec bascule bibliothèque/souhaits, vu/non vu, actualisation TMDB et suppression avec confirmation.
+- Paramètres : aucun menu décoratif sans action.
+- Recherche par image améliorée : photo ou galerie, OCR ML Kit, filtrage des mots parasites, plusieurs propositions de titre, correction manuelle et résultats TMDB avec affiche/année.
 
-## Recherche par image
+## Compatibilité
 
-La reconnaissance de texte fonctionne localement sur l'appareil via Google ML Kit. Une connexion Internet est ensuite nécessaire pour interroger TMDB avec le titre détecté.
+- `applicationId` conservé : `fr.dvdtheque.app`
+- Base Room conservée : `dvdtheque.db`
+- Version : `1.10` (`versionCode = 10`)
+- Secret GitHub requis : `TMDB_TOKEN`
 
-Aucune permission caméra permanente n'est demandée : Reelio utilise l'application photo Android via un URI temporaire sécurisé avec FileProvider.
+## Compilation GitHub Actions
 
-## TMDB
-
-Le secret GitHub doit rester nommé `TMDB_TOKEN`.
-
-## Compilation
-
-Le workflow `.github/workflows/build-apk.yml` compile l'APK de debug via GitHub Actions.
-
-
-## Reelio v1.9
-
-- Logo Reelio converti en ressource transparente et teintable : plus de carré coloré.
-- Icône pinceau du thème convertie en ressource transparente et teintable : plus de carré coloré.
-- Le pinceau Thème reste à 24 dp, comme l’icône Couleurs.
-- La couleur choisie dans Paramètres > Couleurs teinte aussi le logo Reelio.
-- Le pop-corn est supprimé de l’application.
-- « Ce soir » utilise désormais une icône de dé.
-- Le menu ⋮ de la fiche film reste actif : statut, vu/non vu, actualisation TMDB et suppression.
-
-## Recherche par image améliorée (v1.9)
-- OCR ML Kit avec classement des lignes selon leur taille et leur position sur la jaquette.
-- Filtrage renforcé des mentions parasites (DVD, Blu-ray, 4K, édition, bonus, etc.).
-- Jusqu'à 5 titres probables proposés à l'utilisateur.
-- Titre détecté toujours modifiable avant recherche TMDB.
-- Résultats TMDB présentés avec affiche et année avant validation.
-- Menu inactif de la page Paramètres supprimé.
+Le workflow `.github/workflows/build-apk.yml` compile l'APK de débogage avec Java 17 et Gradle 9.3.1.
