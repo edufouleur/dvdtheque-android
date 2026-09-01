@@ -1,22 +1,32 @@
-# Reelio v1.7 — Cinéma Premium
+# Reelio v1.8 — Cinéma Premium
 
-Cette version reprend Reelio v1.6 et intègre les demandes validées après cette version.
+Cette version intègre les corrections visuelles validées et la nouvelle recherche de film par image.
 
-## Modifications
+## Nouveautés principales
 
-- Logo Reelio avec bobine de cinéma violette en haut à gauche.
-- Le nom Reelio reste violet, indépendamment de la couleur choisie.
-- Suppression du rappel de page sous Reelio dans Souhaits, Que regarder ce soir ? et Paramètres.
-- Ajout d’une boîte de pop-corn dans « Que regarder ce soir ? ».
-- « Aléatoire » est conservé comme nom du mode de sélection aléatoire.
-- Dans Paramètres, « Couleur d’accentuation » devient « Couleurs » avec une icône de palette de peintre.
-- Palette simplifiée à 12 coloris.
-- La couleur choisie s’applique aux boutons et éléments actifs, y compris la navigation du bas.
-- Thème : Auto / Clair / Sombre, sans mention « selon l’heure » dans l’interface.
-- Le bouton « À propos de Reelio » ouvre maintenant une vraie fenêtre d’information.
-- Ajout du crédit « by ED ».
-- Sauvegarde, restauration et export restent disponibles.
-- Les statistiques restent supprimées.
+- Recherche par image dans l'écran Ajouter :
+  - prise de photo d'une jaquette avec l'appareil photo Android ;
+  - choix d'une image depuis la galerie ;
+  - lecture automatique du texte avec Google ML Kit Text Recognition ;
+  - détection d'un titre probable ;
+  - possibilité de corriger le titre reconnu ;
+  - recherche automatique du film sur TMDB puis ajout à la Bibliothèque ou aux Souhaits.
+- Le logo Reelio officiel fourni est utilisé dans l'application et prend la couleur d'accentuation sélectionnée.
+- La boîte de pop-corn fournie remplace l'ancienne icône de dé pour « Ce soir » dans la barre du bas.
+- Les intitulés « Souhaits » et « Ce soir » sont forcés sur une seule ligne.
+- Le bouton Modifier et le bouton Partager ont été supprimés de la fiche film.
+- Le menu ⋮ de la fiche film est actif : Bibliothèque/Souhaits, Vu/Non vu, actualisation TMDB et suppression avec confirmation.
+- Le bouton Aléatoire reprend le style validé, avec le sous-titre « Un film au hasard dans votre bibliothèque ».
+- Le pinceau de Thème utilise le visuel fourni et a la même taille que l'icône Couleurs.
+- Thème : Auto / Clair / Sombre.
+- Palette de 12 couleurs conservée.
+- « À propos de Reelio » et le crédit « by ED » sont conservés.
+
+## Recherche par image
+
+La reconnaissance de texte fonctionne localement sur l'appareil via Google ML Kit. Une connexion Internet est ensuite nécessaire pour interroger TMDB avec le titre détecté.
+
+Aucune permission caméra permanente n'est demandée : Reelio utilise l'application photo Android via un URI temporaire sécurisé avec FileProvider.
 
 ## TMDB
 
@@ -24,4 +34,4 @@ Le secret GitHub doit rester nommé `TMDB_TOKEN`.
 
 ## Compilation
 
-Le workflow `.github/workflows/build-apk.yml` compile l’APK de debug via GitHub Actions.
+Le workflow `.github/workflows/build-apk.yml` compile l'APK de debug via GitHub Actions.

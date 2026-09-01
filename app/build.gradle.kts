@@ -14,8 +14,8 @@ android {
         applicationId = "fr.dvdtheque.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 7
-        versionName = "1.7"
+        versionCode = 8
+        versionName = "1.8"
         buildConfigField("String", "TMDB_TOKEN", "\"$tmdbToken\"")
     }
 
@@ -54,4 +54,5 @@ dependencies {
     implementation("com.squareup.retrofit2:retrofit:2.11.0")
     implementation("com.squareup.retrofit2:converter-gson:2.11.0")
     implementation("io.coil-kt:coil-compose:2.7.0")
+    implementation("com.google.mlkit:text-recognition:16.0.1")
 }

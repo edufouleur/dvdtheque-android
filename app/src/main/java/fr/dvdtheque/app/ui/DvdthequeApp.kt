@@ -1,12 +1,14 @@
 package fr.dvdtheque.app.ui
 
 import android.content.Context
+import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -27,10 +29,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -42,8 +46,14 @@ import androidx.navigation.compose.*
 import androidx.navigation.navArgument
 import coil.compose.AsyncImage
 import com.google.gson.Gson
+import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.text.TextRecognition
+import com.google.mlkit.vision.text.latin.TextRecognizerOptions
+import androidx.core.content.FileProvider
+import java.io.File
 import com.google.gson.reflect.TypeToken
 import fr.dvdtheque.app.BuildConfig
+import fr.dvdtheque.app.R
 import fr.dvdtheque.app.data.*
 import fr.dvdtheque.app.network.TmdbMovieDetails
 import fr.dvdtheque.app.network.TmdbMovieResult
@@ -193,7 +203,7 @@ private fun ReelioTopBar(
                         "Reelio",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.ExtraBold,
-                        color = ReelioBrandPurple
+                        color = MaterialTheme.colorScheme.primary
                     )
                     if (screen !in setOf("Bibliothèque", "Souhaits", "Que regarder ce soir ?", "Paramètres")) {
                         Text(
@@ -211,31 +221,12 @@ private fun ReelioTopBar(
 
 @Composable
 private fun ReelioReelLogo(modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier) {
-        val radius = size.minDimension / 2f
-        val center = Offset(size.width / 2f, size.height / 2f)
-        drawCircle(color = ReelioBrandPurple, radius = radius, center = center)
-        drawCircle(color = Color(0xFF17111F), radius = radius * 0.72f, center = center)
-        drawCircle(color = ReelioBrandPurple, radius = radius * 0.18f, center = center)
-        val holeRadius = radius * 0.14f
-        val orbit = radius * 0.43f
-        listOf(-90f, 0f, 90f, 180f).forEach { degrees ->
-            val rad = Math.toRadians(degrees.toDouble())
-            drawCircle(
-                color = ReelioBrandPurple,
-                radius = holeRadius,
-                center = Offset(
-                    center.x + (kotlin.math.cos(rad) * orbit).toFloat(),
-                    center.y + (kotlin.math.sin(rad) * orbit).toFloat()
-                )
-            )
-        }
-        drawRect(
-            color = ReelioBrandPurple,
-            topLeft = Offset(size.width * .68f, size.height * .72f),
-            size = androidx.compose.ui.geometry.Size(size.width * .28f, size.height * .14f)
-        )
-    }
+    Image(
+        painter = painterResource(R.drawable.logo_reelio),
+        contentDescription = "Logo Reelio",
+        modifier = modifier,
+        colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.primary)
+    )
 }
 
 @Composable
@@ -259,13 +250,13 @@ private fun MainBottomBar(current: String, onNavigate: (String) -> Unit, onAdd: 
             selected = current == LIBRARY,
             onClick = { onNavigate(LIBRARY) },
             icon = { Icon(Icons.Default.VideoLibrary, null) },
-            label = { Text("Bibliothèque") }
+            label = { Text("Bibliothèque", maxLines = 1, softWrap = false, fontSize = 10.sp) }
         )
         NavigationBarItem(
             selected = current == WISHLIST,
             onClick = { onNavigate(WISHLIST) },
             icon = { Icon(if (current == WISHLIST) Icons.Default.Favorite else Icons.Default.FavoriteBorder, null) },
-            label = { Text("Souhaits") }
+            label = { Text("Souhaits", maxLines = 1, softWrap = false, fontSize = 10.sp) }
         )
         NavigationBarItem(
             selected = false,
@@ -287,14 +278,20 @@ private fun MainBottomBar(current: String, onNavigate: (String) -> Unit, onAdd: 
         NavigationBarItem(
             selected = current == WATCH,
             onClick = { onNavigate(WATCH) },
-            icon = { Icon(Icons.Default.Casino, null) },
-            label = { Text("Ce soir") }
+            icon = {
+                Image(
+                    painter = painterResource(R.drawable.popcorn_reelio),
+                    contentDescription = "Ce soir",
+                    modifier = Modifier.size(25.dp)
+                )
+            },
+            label = { Text("Ce soir", maxLines = 1, softWrap = false, fontSize = 10.sp) }
         )
         NavigationBarItem(
             selected = current == SETTINGS,
             onClick = { onNavigate(SETTINGS) },
             icon = { Icon(Icons.Default.Settings, null) },
-            label = { Text("Paramètres") }
+            label = { Text("Paramètres", maxLines = 1, softWrap = false, fontSize = 10.sp) }
         )
     }
 }
@@ -674,9 +671,14 @@ private fun AddMovieScreen(vm: MovieViewModel, onBack: () -> Unit) {
         Column(Modifier.padding(padding).fillMaxSize()) {
             TabRow(selectedTabIndex = tab) {
                 Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text("Recherche") })
-                Tab(selected = tab == 1, onClick = { tab = 1 }, text = { Text("Manuel") })
+                Tab(selected = tab == 1, onClick = { tab = 1 }, text = { Text("Photo") })
+                Tab(selected = tab == 2, onClick = { tab = 2 }, text = { Text("Manuel") })
             }
-            if (tab == 0) TmdbSearchTab(vm, onBack) else ManualAddTab(vm, onBack)
+            when (tab) {
+                0 -> TmdbSearchTab(vm, onBack)
+                1 -> PhotoSearchTab(vm, onBack)
+                else -> ManualAddTab(vm, onBack)
+            }
         }
     }
 }
@@ -715,6 +717,291 @@ private fun TmdbSearchTab(vm: MovieViewModel, onSaved: () -> Unit) {
     }
 }
 
+
+@Composable
+private fun PhotoSearchTab(vm: MovieViewModel, onSaved: () -> Unit) {
+    val context = LocalContext.current
+    val state by vm.tmdbState.collectAsStateWithLifecycle()
+    var photoUri by remember { mutableStateOf<Uri?>(null) }
+    var cameraUri by remember { mutableStateOf<Uri?>(null) }
+    var detectedTitle by remember { mutableStateOf("") }
+    var detectedText by remember { mutableStateOf("") }
+    var isReading by remember { mutableStateOf(false) }
+
+    val recognizer = remember { TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS) }
+    DisposableEffect(recognizer) {
+        onDispose { recognizer.close() }
+    }
+
+    fun analyzeImage(uri: Uri) {
+        isReading = true
+        detectedText = ""
+        try {
+            val image = InputImage.fromFilePath(context, uri)
+            recognizer.process(image)
+                .addOnSuccessListener { result ->
+                    detectedText = result.text.trim()
+                    detectedTitle = guessMovieTitle(result.text)
+                    isReading = false
+                    if (detectedTitle.isNotBlank()) {
+                        vm.searchTmdb(detectedTitle)
+                    } else {
+                        Toast.makeText(
+                            context,
+                            "Aucun titre lisible. Essaie de cadrer la jaquette de plus près.",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                }
+                .addOnFailureListener { error ->
+                    isReading = false
+                    Toast.makeText(
+                        context,
+                        "Lecture de l'image impossible : ${error.message ?: "erreur inconnue"}",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+        } catch (error: Exception) {
+            isReading = false
+            Toast.makeText(
+                context,
+                "Impossible d'ouvrir cette image.",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+    }
+
+    val galleryLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) {
+            photoUri = uri
+            analyzeImage(uri)
+        }
+    }
+    val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success ->
+        if (success) {
+            cameraUri?.let { uri ->
+                photoUri = uri
+                analyzeImage(uri)
+            }
+        }
+    }
+
+    if (state is TmdbUiState.Preview) {
+        TmdbPreview((state as TmdbUiState.Preview).details, vm, onSaved)
+        return
+    }
+
+    LazyColumn(
+        Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(14.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        item {
+            Card(
+                shape = RoundedCornerShape(18.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = .55f)),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.primary.copy(alpha = .10f)
+                )
+            ) {
+                Column(
+                    Modifier.fillMaxWidth().padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.PhotoCamera,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(30.dp)
+                        )
+                        Column {
+                            Text(
+                                "Recherche par image",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                            Text(
+                                "Photographie la jaquette ou choisis une image. Reelio lit le titre puis recherche automatiquement le film sur TMDB.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        PremiumButton(
+                            "Photo",
+                            { Icon(Icons.Default.PhotoCamera, null) },
+                            onClick = {
+                                val uri = createCameraImageUri(context)
+                                cameraUri = uri
+                                cameraLauncher.launch(uri)
+                            },
+                            modifier = Modifier.weight(1f)
+                        )
+                        PremiumOutlineButton(
+                            "Galerie",
+                            { Icon(Icons.Default.PhotoLibrary, null) },
+                            { galleryLauncher.launch("image/*") },
+                            Modifier.weight(1f)
+                        )
+                    }
+                }
+            }
+        }
+
+        photoUri?.let { uri ->
+            item {
+                AsyncImage(
+                    model = uri,
+                    contentDescription = "Image analysée",
+                    modifier = Modifier.fillMaxWidth().height(220.dp).clip(RoundedCornerShape(18.dp)),
+                    contentScale = ContentScale.Crop
+                )
+            }
+        }
+
+        if (isReading) {
+            item {
+                Row(
+                    Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    CircularProgressIndicator(Modifier.size(24.dp))
+                    Spacer(Modifier.width(10.dp))
+                    Text("Lecture du titre sur la jaquette…")
+                }
+            }
+        }
+
+        if (detectedTitle.isNotBlank() || detectedText.isNotBlank()) {
+            item {
+                OutlinedTextField(
+                    value = detectedTitle,
+                    onValueChange = { detectedTitle = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Titre détecté") },
+                    supportingText = {
+                        Text("Tu peux corriger le titre avant de relancer la recherche.")
+                    },
+                    singleLine = true,
+                    shape = RoundedCornerShape(16.dp),
+                    trailingIcon = {
+                        IconButton(
+                            enabled = detectedTitle.isNotBlank(),
+                            onClick = { vm.searchTmdb(detectedTitle) }
+                        ) {
+                            Icon(Icons.Default.Search, "Rechercher sur TMDB")
+                        }
+                    }
+                )
+            }
+            if (detectedText.isNotBlank()) {
+                item {
+                    Text(
+                        "Texte reconnu : ${detectedText.replace("\n", " • ").take(240)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+
+        when (val currentState = state) {
+            TmdbUiState.Idle -> {
+                if (!isReading && photoUri == null) {
+                    item {
+                        Text(
+                            "Conseil : cadre surtout le titre du film et évite les reflets sur la jaquette.",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+            TmdbUiState.Loading -> item {
+                Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+            }
+            is TmdbUiState.Error -> item {
+                Text(currentState.message, color = MaterialTheme.colorScheme.error)
+            }
+            is TmdbUiState.Results -> {
+                if (currentState.movies.isEmpty()) {
+                    item { Text("Aucun résultat TMDB. Corrige le titre détecté puis relance la recherche.") }
+                } else {
+                    items(currentState.movies, key = { it.id }) { result ->
+                        Card(
+                            onClick = { vm.loadTmdbDetails(result.id) },
+                            shape = RoundedCornerShape(14.dp)
+                        ) {
+                            Row(
+                                Modifier.fillMaxWidth().padding(10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Poster(result.posterUrl, result.title, Modifier.width(70.dp).height(105.dp))
+                                Spacer(Modifier.width(12.dp))
+                                Column {
+                                    Text(result.title, fontWeight = FontWeight.Bold)
+                                    result.year?.let { Text(it.toString()) }
+                                    if (result.originalTitle.isNotBlank() && result.originalTitle != result.title) {
+                                        Text(
+                                            result.originalTitle,
+                                            style = MaterialTheme.typography.bodySmall
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            is TmdbUiState.Preview -> Unit
+        }
+    }
+}
+
+private fun createCameraImageUri(context: Context): Uri {
+    val directory = File(context.cacheDir, "images").apply { mkdirs() }
+    val file = File.createTempFile("reelio_cover_", ".jpg", directory)
+    return FileProvider.getUriForFile(
+        context,
+        "${context.packageName}.fileprovider",
+        file
+    )
+}
+
+private fun guessMovieTitle(rawText: String): String {
+    val ignored = listOf(
+        "dvd", "blu-ray", "bluray", "ultra hd", "4k", "collector", "edition",
+        "édition", "disc", "disque", "video", "vidéo", "dolby", "digital",
+        "copyright", "www.", ".com", "interdit", "tout public"
+    )
+    val candidates = rawText
+        .lineSequence()
+        .map { it.trim().replace(Regex("\\s+"), " ") }
+        .filter { line ->
+            line.length in 2..70 &&
+                line.count(Char::isLetter) >= 2 &&
+                line.count(Char::isDigit) <= line.length / 2 &&
+                ignored.none { noise -> line.contains(noise, ignoreCase = true) }
+        }
+        .toList()
+
+    return candidates.maxByOrNull { line ->
+        var score = line.count(Char::isLetter) * 2
+        if (line.length in 4..35) score += 20
+        val letters = line.filter(Char::isLetter)
+        if (letters.isNotEmpty() && letters.count(Char::isUpperCase).toDouble() >= letters.length * 0.7) score += 15
+        if (line.split(" ").size in 1..6) score += 10
+        score
+    }.orEmpty()
+}
+
 @Composable
 private fun TmdbPreview(details: TmdbMovieDetails, vm: MovieViewModel, onSaved: () -> Unit) {
     var status by remember { mutableStateOf(MovieStatus.OWNED) }
@@ -730,7 +1017,7 @@ private fun TmdbPreview(details: TmdbMovieDetails, vm: MovieViewModel, onSaved: 
         if (details.overview.isNotBlank()) item { Text(details.overview) }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(selected = status == MovieStatus.OWNED, onClick = { status = MovieStatus.OWNED }, label = { Text("Bibliothèque") })
+                FilterChip(selected = status == MovieStatus.OWNED, onClick = { status = MovieStatus.OWNED }, label = { Text("Bibliothèque", maxLines = 1, softWrap = false, fontSize = 10.sp) })
                 FilterChip(selected = status == MovieStatus.WANTED, onClick = { status = MovieStatus.WANTED }, label = { Text("Souhait") })
             }
         }
@@ -751,7 +1038,7 @@ private fun ManualAddTab(vm: MovieViewModel, onSaved: () -> Unit) {
         item { OutlinedTextField(director, { director = it }, Modifier.fillMaxWidth(), label = { Text("Réalisateur") }, shape = RoundedCornerShape(14.dp)) }
         item { OutlinedTextField(genre, { genre = it }, Modifier.fillMaxWidth(), label = { Text("Genre") }, shape = RoundedCornerShape(14.dp)) }
         item { Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilterChip(status == MovieStatus.OWNED, { status = MovieStatus.OWNED }, label = { Text("Bibliothèque") })
+            FilterChip(status == MovieStatus.OWNED, { status = MovieStatus.OWNED }, label = { Text("Bibliothèque", maxLines = 1, softWrap = false, fontSize = 10.sp) })
             FilterChip(status == MovieStatus.WANTED, { status = MovieStatus.WANTED }, label = { Text("Souhait") })
         } }
         item { PremiumButton("Enregistrer", { Icon(Icons.Default.Save, null) }, {
@@ -771,6 +1058,9 @@ private fun DetailScreen(
     val movie by vm.movie(id).collectAsStateWithLifecycle(initialValue = null)
     val all by vm.movies.collectAsStateWithLifecycle()
     val current = movie
+    val context = LocalContext.current
+    var menuOpen by remember { mutableStateOf(false) }
+    var confirmDelete by remember { mutableStateOf(false) }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -779,8 +1069,61 @@ private fun DetailScreen(
                 current?.title ?: "Fiche film",
                 onBack,
                 actions = {
-                    IconButton(onClick = { }) { Icon(Icons.Default.Share, "Partager") }
-                    IconButton(onClick = { }) { Icon(Icons.Default.MoreVert, "Plus") }
+                    Box {
+                        IconButton(onClick = { menuOpen = true }) {
+                            Icon(Icons.Default.MoreVert, "Menu")
+                        }
+                        DropdownMenu(
+                            expanded = menuOpen,
+                            onDismissRequest = { menuOpen = false }
+                        ) {
+                            current?.let { film ->
+                                DropdownMenuItem(
+                                    text = { Text(if (film.status == MovieStatus.OWNED) "Ajouter aux souhaits" else "Ajouter à la bibliothèque") },
+                                    leadingIcon = { Icon(Icons.Default.FavoriteBorder, null) },
+                                    onClick = {
+                                        menuOpen = false
+                                        vm.toggleStatus(film)
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(if (film.watched) "Marquer comme non vu" else "Marquer comme vu") },
+                                    leadingIcon = { Icon(Icons.Default.Visibility, null) },
+                                    onClick = {
+                                        menuOpen = false
+                                        vm.setWatched(film, !film.watched)
+                                    }
+                                )
+                                if (film.tmdbId != null) {
+                                    DropdownMenuItem(
+                                        text = { Text("Actualiser depuis TMDB") },
+                                        leadingIcon = { Icon(Icons.Default.Refresh, null) },
+                                        onClick = {
+                                            menuOpen = false
+                                            vm.refreshMovieFromTmdb(
+                                                film,
+                                                onDone = {
+                                                    Toast.makeText(context, "Informations actualisées.", Toast.LENGTH_SHORT).show()
+                                                },
+                                                onError = {
+                                                    Toast.makeText(context, it, Toast.LENGTH_LONG).show()
+                                                }
+                                            )
+                                        }
+                                    )
+                                }
+                                HorizontalDivider()
+                                DropdownMenuItem(
+                                    text = { Text("Supprimer") },
+                                    leadingIcon = { Icon(Icons.Default.Delete, null) },
+                                    onClick = {
+                                        menuOpen = false
+                                        confirmDelete = true
+                                    }
+                                )
+                            }
+                        }
+                    }
                 }
             )
         }
@@ -868,12 +1211,6 @@ private fun DetailScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         PremiumOutlineButton(
-                            "Modifier",
-                            { Icon(Icons.Default.Edit, null) },
-                            { },
-                            Modifier.weight(1f)
-                        )
-                        PremiumOutlineButton(
                             if (current.status == MovieStatus.OWNED) "Souhait" else "Acheté",
                             { Icon(Icons.Default.Favorite, null) },
                             { vm.toggleStatus(current) },
@@ -919,16 +1256,28 @@ private fun DetailScreen(
                         }
                     }
                 }
-                item {
-                    PremiumOutlineButton(
-                        "Supprimer",
-                        { Icon(Icons.Default.Delete, null) },
-                        { vm.delete(current, onBack) },
-                        Modifier.fillMaxWidth().padding(horizontal = 14.dp)
-                    )
-                }
             }
         }
+    }
+
+    if (confirmDelete && current != null) {
+        AlertDialog(
+            onDismissRequest = { confirmDelete = false },
+            icon = { Icon(Icons.Default.Delete, null) },
+            title = { Text("Supprimer ce film ?") },
+            text = { Text("« ${current.title} » sera supprimé de Reelio.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        confirmDelete = false
+                        vm.delete(current, onBack)
+                    }
+                ) { Text("Supprimer") }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmDelete = false }) { Text("Annuler") }
+            }
+        )
     }
 }
 
@@ -1023,7 +1372,11 @@ private fun WatchTonightScreen(
                     color = MaterialTheme.colorScheme.surfaceVariant,
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = .45f))
                 ) {
-                    Text("🍿", fontSize = 44.sp, modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp))
+                    Image(
+                        painter = painterResource(R.drawable.popcorn_reelio),
+                        contentDescription = "Pop-corn",
+                        modifier = Modifier.size(58.dp).padding(4.dp)
+                    )
                 }
             }
 
@@ -1085,18 +1438,31 @@ private fun RandomWatchTab(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Icon(Icons.Default.Shuffle, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(34.dp))
-                    Text("ALÉATOIRE", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
-                    Text(
-                        "Un film choisi dans votre bibliothèque",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    PremiumButton(
-                        if (picked == null) "Choisir un film" else "Un autre film",
-                        { Icon(Icons.Default.Casino, null) },
-                        onPick,
-                        Modifier.fillMaxWidth()
-                    )
+                    Button(
+                        onClick = onPick,
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 82.dp),
+                        shape = RoundedCornerShape(18.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
+                        ),
+                        contentPadding = PaddingValues(horizontal = 18.dp, vertical = 12.dp)
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(Icons.Default.Shuffle, null, modifier = Modifier.size(22.dp))
+                                Text("Aléatoire", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold)
+                            }
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                "Un film au hasard dans votre bibliothèque",
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -1268,7 +1634,18 @@ private fun SettingsScreen(
 
             item {
                 SettingsCard("APPARENCE") {
-                    Text("Thème", fontWeight = FontWeight.Bold)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Image(
+                            painter = painterResource(R.drawable.brush_theme),
+                            contentDescription = "Thème",
+                            modifier = Modifier.size(24.dp),
+                            colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.primary)
+                        )
+                        Text("Thème", fontWeight = FontWeight.Bold)
+                    }
                     Row(
                         Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -1313,7 +1690,12 @@ private fun SettingsScreen(
 
                     Spacer(Modifier.height(8.dp))
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Icon(Icons.Default.Palette, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                        Icon(
+                            Icons.Default.Palette,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(24.dp)
+                        )
                         Text("Couleurs", fontWeight = FontWeight.Bold)
                     }
                     Text(

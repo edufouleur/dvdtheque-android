@@ -112,6 +112,35 @@ class MovieViewModel(application: Application) : AndroidViewModel(application) {
     fun toggleStatus(movie: Movie) = save(movie.copy(status = if (movie.status == MovieStatus.OWNED) MovieStatus.WANTED else MovieStatus.OWNED))
     fun setWatched(movie: Movie, watched: Boolean) = save(movie.copy(watched = watched))
     fun setRating(movie: Movie, rating: Int) = save(movie.copy(rating = rating.coerceIn(1, 5)))
+
+    fun refreshMovieFromTmdb(
+        movie: Movie,
+        onDone: (() -> Unit)? = null,
+        onError: ((String) -> Unit)? = null
+    ) = viewModelScope.launch {
+        val tmdbId = movie.tmdbId ?: run {
+            onError?.invoke("Ce film n'est pas lié à TMDB.")
+            return@launch
+        }
+        try {
+            val details = tmdbRepository.details(tmdbId)
+            val refreshed = tmdbRepository.toMovie(details, movie.status).copy(
+                id = movie.id,
+                rating = movie.rating,
+                notes = movie.notes,
+                edition = movie.edition,
+                discCount = movie.discCount,
+                location = movie.location,
+                addedAt = movie.addedAt,
+                watched = movie.watched
+            )
+            repository.save(refreshed)
+            onDone?.invoke()
+        } catch (e: Exception) {
+            onError?.invoke(e.message ?: "Impossible d'actualiser ce film.")
+        }
+    }
+
     fun delete(movie: Movie, onDeleted: (() -> Unit)? = null) = viewModelScope.launch {
         repository.delete(movie); onDeleted?.invoke()
     }
