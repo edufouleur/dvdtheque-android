@@ -1230,22 +1230,45 @@ private fun DetailScreen(
                             Modifier.width(104.dp).height(156.dp).clip(RoundedCornerShape(12.dp))
                         )
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text(
-                                current.title.uppercase(),
-                                style = MaterialTheme.typography.headlineMedium,
-                                fontWeight = FontWeight.ExtraBold,
-                                letterSpacing = 2.0.sp,
-                                color = Color.White
-                            )
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    current.title.uppercase(),
+                                    style = MaterialTheme.typography.headlineMedium,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    letterSpacing = 2.0.sp,
+                                    color = Color.White,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                IconButton(
+                                    onClick = { vm.setWatched(current, !current.watched) },
+                                    modifier = Modifier
+                                        .size(42.dp)
+                                        .background(MaterialTheme.colorScheme.primary.copy(alpha = .14f), CircleShape)
+                                ) {
+                                    Icon(
+                                        if (current.watched) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                                        contentDescription = if (current.watched) "Vu" else "Pas vu",
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(26.dp)
+                                    )
+                                }
+                            }
                             Row(
                                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 current.year?.let { CinemaMeta(Icons.Default.CalendarMonth, it.toString()) }
                                 current.durationMinutes?.let { CinemaMeta(Icons.Default.Schedule, "${it / 60}h ${it % 60}min") }
-                            }
-                            if (current.rating != null) {
-                                Text("★ ${current.rating}/5", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                Text(
+                                    current.rating?.let { "$it/5" } ?: "—/5",
+                                    color = Color.White,
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 16.sp
+                                )
                             }
                         }
                     }
@@ -1316,40 +1339,6 @@ private fun DetailScreen(
                     }
                 }
 
-                item {
-                    Card(
-                        colors = CardDefaults.cardColors(containerColor = Color(0xD012141B)),
-                        shape = RoundedCornerShape(18.dp),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = .45f))
-                    ) {
-                        Row(
-                            Modifier.fillMaxWidth().padding(14.dp),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            IconButton(
-                                onClick = { vm.setWatched(current, !current.watched) },
-                                modifier = Modifier
-                                    .size(52.dp)
-                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = .14f), CircleShape)
-                            ) {
-                                Icon(
-                                    if (current.watched) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                                    contentDescription = if (current.watched) "Marquer comme pas vu" else "Marquer comme vu",
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(30.dp)
-                                )
-                            }
-                            Column(Modifier.weight(1f)) {
-                                Text("STATUT", color = MaterialTheme.colorScheme.primary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                Text(if (current.watched) "Vu" else "Pas vu", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
-                                Text("Appuyez sur l’œil pour changer", color = Color.White.copy(alpha = .6f), fontSize = 12.sp)
-                            }
-                            RatingRow(current.rating ?: 0) { vm.setRating(current, it) }
-                        }
-                    }
-                }
-
                 sagaFor(current)?.let { guide ->
                     item {
                         Column {
@@ -1383,7 +1372,8 @@ private fun DetailScreen(
             onClick = onBack,
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .padding(14.dp)
+                .statusBarsPadding()
+                .padding(start = 4.dp, top = 4.dp)
                 .background(Color(0x88000000), CircleShape)
         ) {
             Icon(Icons.Default.ArrowBack, "Retour", tint = Color.White)
@@ -1392,7 +1382,8 @@ private fun DetailScreen(
         Box(
             Modifier
                 .align(Alignment.TopEnd)
-                .padding(14.dp)
+                .statusBarsPadding()
+                .padding(end = 4.dp, top = 4.dp)
         ) {
             IconButton(
                 onClick = { menuOpen = true },
@@ -1401,6 +1392,13 @@ private fun DetailScreen(
                 Icon(Icons.Default.MoreVert, "Menu", tint = Color.White)
             }
             DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                current?.let { film ->
+                    Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+                        Text("Ma note", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                        RatingRow(film.rating ?: 0) { vm.setRating(film, it) }
+                    }
+                    HorizontalDivider()
+                }
                 DropdownMenuItem(
                     text = { Text(if (current?.status == MovieStatus.OWNED) "Ajouter aux souhaits" else "Ajouter à la bibliothèque") },
                     leadingIcon = { Icon(Icons.Default.FavoriteBorder, null) },
