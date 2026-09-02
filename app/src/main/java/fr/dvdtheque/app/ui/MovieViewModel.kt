@@ -175,4 +175,14 @@ class MovieViewModel(application: Application) : AndroidViewModel(application) {
         repository.replaceAll(restored)
         onDone?.invoke()
     }
+
+    fun resetAll(onDone: (() -> Unit)? = null) = viewModelScope.launch {
+        repository.deleteAll()
+        _query.value = ""
+        _sort.value = MovieSort.TITLE_ASC
+        _tmdbState.value = TmdbUiState.Idle
+        _discovery.value = DiscoveryState()
+        _cinemaState.value = CinemaUiState.Idle
+        onDone?.invoke()
+    }
 }

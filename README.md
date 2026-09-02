@@ -1,23 +1,19 @@
-# Reelio v1.15 – Cinéma Premium
+# Reelio v1.16 – Cinéma Premium
 
-Mise à jour de la fiche film immersive.
+Mise à jour visuelle et gestion des données.
 
-## Changements v1.15
-- La note n'est plus affichée avec des étoiles dans la fiche.
-- La note numérique apparaît à droite de la durée (`4/5`, ou `—/5` si aucune note).
-- La notation 1 à 5 étoiles est déplacée dans le menu `⋮` de la fiche.
-- La rubrique séparée « Statut » Vu/Pas vu est supprimée.
-- Un bouton œil est placé directement à côté du titre : œil ouvert = Vu, œil barré = Pas vu.
-- Aucun texte d'instruction n'est affiché pour le changement Vu/Pas vu.
-- Flèche Retour et menu `⋮` sont alignés verticalement sur les actions de la barre supérieure de la Bibliothèque.
-- Conservation du grand visuel de fond et de la petite affiche à gauche.
-- Conservation des boutons de navigation Bibliothèque, Souhaits, Ce soir et Paramètres.
-- Thème sombre par défaut et couleurs dynamiques conservés.
+## Changements v1.16
+- Le grand visuel TMDB de la fiche film apparaît avec un fondu plus lent (environ 800 ms), sans afficher l'affiche comme fond temporaire.
+- Les titres composés d'un seul mot restent sur une seule ligne et leur taille s'adapte afin d'éviter une coupure du mot.
+- Les titres multi-mots conservent un affichage adaptatif sur deux lignes maximum.
+- Nouvelle rubrique **🔒 Données** dans Paramètres :
+  - Sauvegarder la collection en JSON.
+  - Restaurer une sauvegarde Reelio.
+  - Exporter la collection et les souhaits en CSV.
+  - Réinitialiser Reelio avec double confirmation et possibilité de sauvegarder avant l'effacement.
+- Le logo Reelio affiché dans l'application reprend la bobine de l'icône du lanceur, sans fond ni cadre.
+- La bobine interne est un masque transparent recoloré dynamiquement selon la couleur choisie dans **Paramètres → Couleurs**.
+- L'icône du lanceur Android reste inchangée : bobine violette, fond sombre et cadre violet.
+- Le thème sombre reste le thème par défaut à la première installation.
 
 Le même `applicationId` (`fr.dvdtheque.app`) est conservé afin de préserver la compatibilité de mise à jour et les données locales.
-
-
-## Corrections v1.15
-- Le grand visuel TMDB n'utilise plus l'affiche comme image temporaire : fond sombre, puis fondu court du backdrop une fois chargé.
-- Les titres longs utilisent au maximum deux lignes avec une taille et un espacement adaptatifs.
-- Le logo Reelio est dessiné comme une bobine parfaitement circulaire afin d'éviter tout étirement vertical ou horizontal.

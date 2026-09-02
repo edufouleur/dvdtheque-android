@@ -234,40 +234,15 @@ private fun ReelioTopBar(
 
 @Composable
 private fun ReelioReelLogo(modifier: Modifier = Modifier) {
-    val accent = MaterialTheme.colorScheme.primary
-    Canvas(modifier = modifier) {
-        // La bobine est construite dans un carré et reste parfaitement circulaire,
-        // quelle que soit la taille d'affichage demandée.
-        val diameter = size.minDimension * 0.88f
-        val radius = diameter / 2f
-        val center = Offset(size.width / 2f, size.height / 2f)
-
-        drawCircle(color = accent, radius = radius, center = center)
-
-        val holeColor = Color(0xFF090A0E)
-        val orbit = radius * 0.53f
-        val holeRadius = radius * 0.18f
-        listOf(-90f, -18f, 54f, 126f, 198f).forEach { degrees ->
-            val angle = Math.toRadians(degrees.toDouble())
-            drawCircle(
-                color = holeColor,
-                radius = holeRadius,
-                center = Offset(
-                    center.x + (kotlin.math.cos(angle) * orbit).toFloat(),
-                    center.y + (kotlin.math.sin(angle) * orbit).toFloat()
-                )
-            )
-        }
-        drawCircle(color = holeColor, radius = radius * 0.105f, center = center)
-
-        // Petite amorce de pellicule, fidèle au symbole Reelio.
-        drawRoundRect(
-            color = accent,
-            topLeft = Offset(center.x + radius * 0.67f, center.y + radius * 0.52f),
-            size = androidx.compose.ui.geometry.Size(radius * 0.22f, radius * 0.52f),
-            cornerRadius = androidx.compose.ui.geometry.CornerRadius(radius * 0.11f)
-        )
-    }
+    // Même bobine que l'icône du lanceur, mais sans fond ni cadre.
+    // Le masque transparent est teinté avec la couleur choisie dans Paramètres.
+    Image(
+        painter = painterResource(R.drawable.logo_reelio_dynamic),
+        contentDescription = "Logo Reelio",
+        modifier = modifier,
+        contentScale = ContentScale.Fit,
+        colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.primary)
+    )
 }
 
 @Composable
@@ -1229,7 +1204,7 @@ private fun DetailScreen(
             )
             LaunchedEffect(backdropLoaded, backdrop) {
                 if (backdropLoaded) {
-                    backdropFade.animateTo(1f, animationSpec = tween(220))
+                    backdropFade.animateTo(1f, animationSpec = tween(800))
                 }
             }
         }
@@ -1273,22 +1248,34 @@ private fun DetailScreen(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                val titleLength = current.title.length
-                                val adaptiveTitleSize = when {
-                                    titleLength <= 22 -> 26.sp
-                                    titleLength <= 38 -> 22.sp
-                                    titleLength <= 58 -> 19.sp
-                                    else -> 17.sp
+                                val cleanTitle = current.title.trim()
+                                val titleLength = cleanTitle.length
+                                val singleWordTitle = cleanTitle.isNotEmpty() && cleanTitle.none { it.isWhitespace() }
+                                val adaptiveTitleSize = if (singleWordTitle) {
+                                    when {
+                                        titleLength <= 12 -> 27.sp
+                                        titleLength <= 18 -> 23.sp
+                                        titleLength <= 24 -> 19.sp
+                                        else -> 16.sp
+                                    }
+                                } else {
+                                    when {
+                                        titleLength <= 22 -> 26.sp
+                                        titleLength <= 38 -> 22.sp
+                                        titleLength <= 58 -> 19.sp
+                                        else -> 17.sp
+                                    }
                                 }
-                                val adaptiveSpacing = if (titleLength <= 30) 1.5.sp else 0.4.sp
+                                val adaptiveSpacing = if (singleWordTitle) 0.2.sp else if (titleLength <= 30) 1.2.sp else 0.3.sp
                                 Text(
-                                    current.title.uppercase(),
+                                    cleanTitle.uppercase(),
                                     fontSize = adaptiveTitleSize,
                                     lineHeight = adaptiveTitleSize * 1.08f,
                                     fontWeight = FontWeight.ExtraBold,
                                     letterSpacing = adaptiveSpacing,
                                     color = Color.White,
-                                    maxLines = 2,
+                                    maxLines = if (singleWordTitle) 1 else 2,
+                                    softWrap = !singleWordTitle,
                                     overflow = TextOverflow.Ellipsis,
                                     modifier = Modifier.weight(1f)
                                 )
@@ -2025,6 +2012,7 @@ private fun SettingsScreen(
     val movies by vm.movies.collectAsStateWithLifecycle()
     val gson = remember { Gson() }
     var showAbout by remember { mutableStateOf(false) }
+    var resetStep by remember { mutableIntStateOf(0) }
 
     val backupLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/json")
@@ -2207,24 +2195,30 @@ private fun SettingsScreen(
             }
 
             item {
-                SettingsCard("SAUVEGARDE & DONNÉES") {
+                SettingsCard("🔒 DONNÉES") {
                     SettingsActionRow(
                         icon = Icons.Default.Backup,
-                        title = "Sauvegarder maintenant",
+                        title = "Sauvegarder",
                         subtitle = "Crée une copie complète de votre collection"
                     ) { backupLauncher.launch("reelio-sauvegarde.json") }
 
                     SettingsActionRow(
                         icon = Icons.Default.Restore,
-                        title = "Restaurer une sauvegarde",
+                        title = "Restaurer",
                         subtitle = "Récupère une sauvegarde Reelio"
                     ) { restoreLauncher.launch("application/json") }
 
                     SettingsActionRow(
                         icon = Icons.Default.FileDownload,
-                        title = "Exporter mes données",
-                        subtitle = "Collection et souhaits au format CSV"
+                        title = "Exporter en CSV",
+                        subtitle = "Collection et souhaits dans un fichier CSV"
                     ) { exportLauncher.launch("reelio-collection.csv") }
+
+                    SettingsActionRow(
+                        icon = Icons.Default.RestartAlt,
+                        title = "Réinitialiser Reelio",
+                        subtitle = "Efface toutes les données locales"
+                    ) { resetStep = 1 }
                 }
             }
 
@@ -2248,6 +2242,43 @@ private fun SettingsScreen(
                 }
             }
         }
+    }
+
+    if (resetStep == 1) {
+        AlertDialog(
+            onDismissRequest = { resetStep = 0 },
+            icon = { Icon(Icons.Default.Warning, null) },
+            title = { Text("Réinitialiser Reelio ?") },
+            text = { Text("Cette action supprimera votre bibliothèque et vos souhaits enregistrés sur cet appareil. Vous pouvez créer une sauvegarde avant de continuer.") },
+            confirmButton = {
+                TextButton(onClick = { resetStep = 2 }) { Text("Continuer") }
+            },
+            dismissButton = {
+                Row {
+                    TextButton(onClick = {
+                        resetStep = 0
+                        backupLauncher.launch("reelio-sauvegarde-avant-reset.json")
+                    }) { Text("Sauvegarder d'abord") }
+                    TextButton(onClick = { resetStep = 0 }) { Text("Annuler") }
+                }
+            }
+        )
+    }
+
+    if (resetStep == 2) {
+        AlertDialog(
+            onDismissRequest = { resetStep = 0 },
+            icon = { Icon(Icons.Default.DeleteForever, null, tint = MaterialTheme.colorScheme.error) },
+            title = { Text("Confirmation définitive") },
+            text = { Text("Toutes les données locales de Reelio seront supprimées. Cette action est irréversible sans sauvegarde.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    resetStep = 0
+                    vm.resetAll { Toast.makeText(context, "Reelio a été réinitialisé", Toast.LENGTH_SHORT).show() }
+                }) { Text("Tout effacer", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = { TextButton(onClick = { resetStep = 0 }) { Text("Annuler") } }
+        )
     }
 
     if (showAbout) {
