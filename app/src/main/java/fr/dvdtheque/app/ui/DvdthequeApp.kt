@@ -1,6 +1,7 @@
 package fr.dvdtheque.app.ui
 
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -11,6 +12,8 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -28,6 +31,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.Brush
@@ -67,6 +71,7 @@ private const val ADD = "add"
 private const val WATCH = "watch"
 private const val SETTINGS = "settings"
 private const val DETAIL = "detail"
+private const val CINEMA = "cinema"
 private val ReelioBrandPurple = Color(0xFF9D5CFF)
 
 private enum class ReelioThemeMode(val label: String) { AUTO("Auto"), LIGHT("Clair"), DARK("Sombre") }
@@ -162,11 +167,20 @@ fun DvdthequeApp(vm: MovieViewModel = viewModel()) {
                 )
             }
             composable("$DETAIL/{id}", arguments = listOf(navArgument("id") { type = NavType.LongType })) { entry ->
+                val movieId = entry.arguments?.getLong("id") ?: 0L
                 DetailScreen(
-                    id = entry.arguments?.getLong("id") ?: 0L,
+                    id = movieId,
                     vm = vm,
                     onBack = { nav.popBackStack() },
-                    onWatchGuide = { nav.navigate(WATCH) }
+                    onWatchGuide = { nav.navigate(WATCH) },
+                    onCinema = { nav.navigate("$CINEMA/$movieId") }
+                )
+            }
+            composable("$CINEMA/{id}", arguments = listOf(navArgument("id") { type = NavType.LongType })) { entry ->
+                CinemaModeScreen(
+                    id = entry.arguments?.getLong("id") ?: 0L,
+                    vm = vm,
+                    onBack = { nav.popBackStack() }
                 )
             }
         }
@@ -301,10 +315,12 @@ private fun PremiumButton(
     text: String,
     icon: @Composable (() -> Unit)? = null,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true
 ) {
     Button(
         onClick = onClick,
+        enabled = enabled,
         modifier = modifier
             .heightIn(min = 52.dp)
             .shadow(8.dp, RoundedCornerShape(16.dp)),
@@ -1133,7 +1149,8 @@ private fun DetailScreen(
     id: Long,
     vm: MovieViewModel,
     onBack: () -> Unit,
-    onWatchGuide: () -> Unit
+    onWatchGuide: () -> Unit,
+    onCinema: () -> Unit
 ) {
     val movie by vm.movie(id).collectAsStateWithLifecycle(initialValue = null)
     val all by vm.movies.collectAsStateWithLifecycle()
@@ -1286,6 +1303,15 @@ private fun DetailScreen(
                 }
 
                 item {
+                    PremiumButton(
+                        "Mode cinéma",
+                        { Icon(Icons.Default.Movie, null) },
+                        onCinema,
+                        Modifier.fillMaxWidth().padding(horizontal = 14.dp)
+                    )
+                }
+
+                item {
                     Row(
                         Modifier.padding(horizontal = 14.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -1358,6 +1384,250 @@ private fun DetailScreen(
                 TextButton(onClick = { confirmDelete = false }) { Text("Annuler") }
             }
         )
+    }
+}
+
+@Composable
+private fun CinemaModeScreen(
+    id: Long,
+    vm: MovieViewModel,
+    onBack: () -> Unit
+) {
+    val movie by vm.movie(id).collectAsStateWithLifecycle(initialValue = null)
+    val cinemaState by vm.cinemaState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val fade = remember { Animatable(0f) }
+
+    LaunchedEffect(movie?.tmdbId) {
+        fade.snapTo(0f)
+        vm.resetCinema()
+        vm.loadCinema(movie?.tmdbId)
+        fade.animateTo(1f, animationSpec = tween(450))
+    }
+
+    DisposableEffect(Unit) {
+        onDispose { vm.resetCinema() }
+    }
+
+    val current = movie
+    val ready = cinemaState as? CinemaUiState.Ready
+    val details = ready?.details
+    val backdrop = details?.backdropUrl.orEmpty().ifBlank { current?.posterUrl.orEmpty() }
+    val trailer = ready?.trailer
+
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(Color(0xFF05060A))
+            .graphicsLayer(alpha = fade.value)
+    ) {
+        if (backdrop.isNotBlank()) {
+            AsyncImage(
+                model = backdrop,
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop,
+                alpha = .58f
+            )
+        }
+        Box(
+            Modifier.fillMaxSize().background(
+                Brush.verticalGradient(
+                    0f to Color(0x8F000000),
+                    .38f to Color(0x33000000),
+                    .72f to Color(0xEE05060A),
+                    1f to Color(0xFF05060A)
+                )
+            )
+        )
+
+        if (current == null) {
+            CircularProgressIndicator(Modifier.align(Alignment.Center))
+        } else {
+            LazyColumn(
+                Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 70.dp, bottom = 36.dp),
+                verticalArrangement = Arrangement.spacedBy(18.dp)
+            ) {
+                item {
+                    Column(
+                        Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                            ReelioReelLogo(Modifier.size(30.dp))
+                            Text(
+                                "MODE CINÉMA",
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.ExtraBold,
+                                letterSpacing = 1.4.sp
+                            )
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        Poster(
+                            current.posterUrl,
+                            current.title,
+                            Modifier.width(200.dp).height(300.dp).shadow(18.dp, RoundedCornerShape(18.dp))
+                        )
+                        Text(
+                            current.title.uppercase(),
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.ExtraBold,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                            letterSpacing = 2.sp,
+                            color = Color.White
+                        )
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            current.year?.let { CinemaMeta(Icons.Default.CalendarMonth, it.toString()) }
+                            current.durationMinutes?.let { CinemaMeta(Icons.Default.Schedule, "${it / 60}h ${it % 60}min") }
+                            if (current.watched) CinemaMeta(Icons.Default.CheckCircle, "Vu")
+                        }
+                    }
+                }
+
+                item {
+                    if (cinemaState is CinemaUiState.Loading) {
+                        LinearProgressIndicator(Modifier.fillMaxWidth())
+                    }
+                    PremiumButton(
+                        if (trailer != null) "Regarder la bande-annonce" else "Bande-annonce indisponible",
+                        { Icon(Icons.Default.PlayCircle, null) },
+                        onClick = {
+                            if (trailer != null) {
+                                val uri = Uri.parse("https://www.youtube.com/watch?v=${trailer.key}")
+                                runCatching {
+                                    context.startActivity(Intent(Intent.ACTION_VIEW, uri))
+                                }.onFailure {
+                                    Toast.makeText(context, "Impossible d'ouvrir la bande-annonce.", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = trailer != null
+                    )
+                }
+
+                if (current.synopsis.isNotBlank()) {
+                    item {
+                        Text(
+                            current.synopsis,
+                            color = Color.White.copy(alpha = .88f),
+                            style = MaterialTheme.typography.bodyLarge,
+                            lineHeight = 24.sp
+                        )
+                    }
+                }
+
+                item {
+                    HorizontalDivider(color = Color.White.copy(alpha = .18f))
+                    Spacer(Modifier.height(14.dp))
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(18.dp)
+                    ) {
+                        if (current.director.isNotBlank()) {
+                            CinemaCredit("RÉALISATEUR", current.director, Modifier.weight(1f))
+                        }
+                        if (current.actors.isNotBlank()) {
+                            CinemaCredit("AVEC", current.actors, Modifier.weight(1f))
+                        }
+                    }
+                }
+
+                item {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        CinemaStatusCard(
+                            icon = if (current.status == MovieStatus.OWNED) Icons.Default.Bookmark else Icons.Default.Favorite,
+                            text = if (current.status == MovieStatus.OWNED) "Dans ma bibliothèque" else "Dans mes souhaits",
+                            Modifier.weight(1f)
+                        )
+                        CinemaStatusCard(
+                            icon = if (current.watched) Icons.Default.CheckCircle else Icons.Default.Visibility,
+                            text = if (current.watched) "Déjà vu" else "À voir",
+                            Modifier.weight(1f)
+                        )
+                        CinemaStatusCard(
+                            icon = Icons.Default.Star,
+                            text = current.rating?.let { "$it / 5" } ?: "Non noté",
+                            Modifier.weight(1f)
+                        )
+                    }
+                }
+
+                if (cinemaState is CinemaUiState.Error) {
+                    item {
+                        Text(
+                            (cinemaState as CinemaUiState.Error).message,
+                            color = Color.White.copy(alpha = .55f),
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+            }
+        }
+
+        IconButton(
+            onClick = onBack,
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .statusBarsPadding()
+                .padding(10.dp)
+                .background(Color.Black.copy(alpha = .55f), CircleShape)
+        ) {
+            Icon(Icons.Default.Close, "Fermer le mode cinéma", tint = Color.White)
+        }
+    }
+}
+
+@Composable
+private fun CinemaMeta(icon: androidx.compose.ui.graphics.vector.ImageVector, text: String) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+        Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(19.dp))
+        Text(text, color = Color.White, style = MaterialTheme.typography.bodyMedium)
+    }
+}
+
+@Composable
+private fun CinemaCredit(label: String, value: String, modifier: Modifier = Modifier) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(label, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+        Text(value, color = Color.White, maxLines = 4, overflow = TextOverflow.Ellipsis)
+    }
+}
+
+@Composable
+private fun CinemaStatusCard(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    text: String,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier,
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Black.copy(alpha = .48f)),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = .45f))
+    ) {
+        Column(
+            Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Icon(icon, null, tint = MaterialTheme.colorScheme.primary)
+            Text(
+                text,
+                color = Color.White,
+                style = MaterialTheme.typography.labelSmall,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                maxLines = 2
+            )
+        }
     }
 }
 

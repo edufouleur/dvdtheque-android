@@ -23,6 +23,23 @@ class TmdbRepository {
 
     suspend fun search(query: String): List<TmdbMovieResult> = api.searchMovies(authorization, query.trim()).results
     suspend fun details(id: Int): TmdbMovieDetails = api.movieDetails(authorization, id)
+
+    suspend fun trailer(id: Int): TmdbVideo? {
+        fun choose(videos: List<TmdbVideo>): TmdbVideo? = videos
+            .filter { it.site.equals("YouTube", true) && it.key.isNotBlank() }
+            .sortedWith(compareByDescending<TmdbVideo> { it.official }.thenBy { video ->
+                when {
+                    video.type.equals("Trailer", true) -> 0
+                    video.type.equals("Teaser", true) -> 1
+                    else -> 2
+                }
+            })
+            .firstOrNull()
+
+        val french = choose(api.movieVideos(authorization, id, "fr-FR").results)
+        if (french != null) return french
+        return choose(api.movieVideos(authorization, id, "en-US").results)
+    }
     suspend fun nowPlaying(): List<TmdbMovieResult> = api.nowPlaying(authorization).results.take(20)
     suspend fun popular(): List<TmdbMovieResult> = api.popular(authorization).results.take(20)
 

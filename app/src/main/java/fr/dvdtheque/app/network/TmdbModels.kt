@@ -24,11 +24,13 @@ data class TmdbMovieDetails(
     val runtime: Int? = null,
     val overview: String = "",
     @SerializedName("poster_path") val posterPath: String? = null,
+    @SerializedName("backdrop_path") val backdropPath: String? = null,
     val genres: List<TmdbGenre> = emptyList(),
     val credits: TmdbCredits? = null
 ) {
     val year: Int? get() = releaseDate.take(4).toIntOrNull()
     val posterUrl: String get() = posterPath?.let { "https://image.tmdb.org/t/p/w500$it" } ?: ""
+    val backdropUrl: String get() = backdropPath?.let { "https://image.tmdb.org/t/p/w1280$it" } ?: ""
 }
 
 data class TmdbGenre(val id: Int, val name: String)
@@ -44,4 +46,15 @@ data class TmdbCountryRelease(
 data class TmdbReleaseDate(
     @SerializedName("release_date") val date: String = "",
     val type: Int = 0
+)
+
+
+data class TmdbVideoResponse(val results: List<TmdbVideo> = emptyList())
+data class TmdbVideo(
+    val id: String = "",
+    val key: String = "",
+    val name: String = "",
+    val site: String = "",
+    val type: String = "",
+    val official: Boolean = false
 )

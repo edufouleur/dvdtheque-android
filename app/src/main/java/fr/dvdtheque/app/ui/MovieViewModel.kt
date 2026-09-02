@@ -25,6 +25,13 @@ data class DiscoveryState(
     val error: String? = null
 )
 
+sealed interface CinemaUiState {
+    data object Idle : CinemaUiState
+    data object Loading : CinemaUiState
+    data class Ready(val details: TmdbMovieDetails, val trailer: TmdbVideo?) : CinemaUiState
+    data class Error(val message: String) : CinemaUiState
+}
+
 class MovieViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = MovieRepository(AppDatabase.get(application).movieDao())
     private val tmdbRepository = TmdbRepository()
@@ -40,6 +47,9 @@ class MovieViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _discovery = MutableStateFlow(DiscoveryState())
     val discovery = _discovery.asStateFlow()
+
+    private val _cinemaState = MutableStateFlow<CinemaUiState>(CinemaUiState.Idle)
+    val cinemaState = _cinemaState.asStateFlow()
 
     val movies: StateFlow<List<Movie>> = combine(repository.movies, _query, _sort) { movies, query, sort ->
         val filtered = if (query.isBlank()) movies else movies.filter {
@@ -106,6 +116,23 @@ class MovieViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun resetTmdb() { _tmdbState.value = TmdbUiState.Idle }
+
+    fun loadCinema(tmdbId: Int?) = viewModelScope.launch {
+        if (tmdbId == null) {
+            _cinemaState.value = CinemaUiState.Error("Aucune fiche TMDB liée à ce film.")
+            return@launch
+        }
+        _cinemaState.value = CinemaUiState.Loading
+        _cinemaState.value = try {
+            val details = tmdbRepository.details(tmdbId)
+            val trailer = runCatching { tmdbRepository.trailer(tmdbId) }.getOrNull()
+            CinemaUiState.Ready(details, trailer)
+        } catch (e: Exception) {
+            CinemaUiState.Error(e.message ?: "Impossible de charger le mode cinéma")
+        }
+    }
+
+    fun resetCinema() { _cinemaState.value = CinemaUiState.Idle }
     fun save(movie: Movie, onSaved: (() -> Unit)? = null) = viewModelScope.launch {
         repository.save(movie); onSaved?.invoke()
     }

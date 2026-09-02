@@ -23,6 +23,13 @@ interface TmdbApi {
         @Query("append_to_response") appendToResponse: String = "credits"
     ): TmdbMovieDetails
 
+    @GET("movie/{movieId}/videos")
+    suspend fun movieVideos(
+        @Header("Authorization") authorization: String,
+        @Path("movieId") movieId: Int,
+        @Query("language") language: String = "fr-FR"
+    ): TmdbVideoResponse
+
     @GET("movie/now_playing")
     suspend fun nowPlaying(
         @Header("Authorization") authorization: String,
