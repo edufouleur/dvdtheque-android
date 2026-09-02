@@ -172,8 +172,7 @@ fun DvdthequeApp(vm: MovieViewModel = viewModel()) {
                     id = movieId,
                     vm = vm,
                     onBack = { nav.popBackStack() },
-                    onWatchGuide = { nav.navigate(WATCH) },
-                    onCinema = { nav.navigate("$CINEMA/$movieId") }
+                    onWatchGuide = { nav.navigate(WATCH) }
                 )
             }
             composable("$CINEMA/{id}", arguments = listOf(navArgument("id") { type = NavType.LongType })) { entry ->
@@ -1149,173 +1148,206 @@ private fun DetailScreen(
     id: Long,
     vm: MovieViewModel,
     onBack: () -> Unit,
-    onWatchGuide: () -> Unit,
-    onCinema: () -> Unit
+    onWatchGuide: () -> Unit
 ) {
     val movie by vm.movie(id).collectAsStateWithLifecycle(initialValue = null)
     val all by vm.movies.collectAsStateWithLifecycle()
+    val cinemaState by vm.cinemaState.collectAsStateWithLifecycle()
     val current = movie
     val context = LocalContext.current
     var menuOpen by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
+    val fade = remember { Animatable(0f) }
 
-    Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
-        topBar = {
-            ReelioTopBar(
-                current?.title ?: "Fiche film",
-                onBack,
-                actions = {
-                    Box {
-                        IconButton(onClick = { menuOpen = true }) {
-                            Icon(Icons.Default.MoreVert, "Menu")
-                        }
-                        DropdownMenu(
-                            expanded = menuOpen,
-                            onDismissRequest = { menuOpen = false }
-                        ) {
-                            current?.let { film ->
-                                DropdownMenuItem(
-                                    text = { Text(if (film.status == MovieStatus.OWNED) "Ajouter aux souhaits" else "Ajouter à la bibliothèque") },
-                                    leadingIcon = { Icon(Icons.Default.FavoriteBorder, null) },
-                                    onClick = {
-                                        menuOpen = false
-                                        vm.toggleStatus(film)
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text(if (film.watched) "Marquer comme non vu" else "Marquer comme vu") },
-                                    leadingIcon = { Icon(Icons.Default.Visibility, null) },
-                                    onClick = {
-                                        menuOpen = false
-                                        vm.setWatched(film, !film.watched)
-                                    }
-                                )
-                                if (film.tmdbId != null) {
-                                    DropdownMenuItem(
-                                        text = { Text("Actualiser depuis TMDB") },
-                                        leadingIcon = { Icon(Icons.Default.Refresh, null) },
-                                        onClick = {
-                                            menuOpen = false
-                                            vm.refreshMovieFromTmdb(
-                                                film,
-                                                onDone = {
-                                                    Toast.makeText(context, "Informations actualisées.", Toast.LENGTH_SHORT).show()
-                                                },
-                                                onError = {
-                                                    Toast.makeText(context, it, Toast.LENGTH_LONG).show()
-                                                }
-                                            )
-                                        }
-                                    )
-                                }
-                                HorizontalDivider()
-                                DropdownMenuItem(
-                                    text = { Text("Supprimer") },
-                                    leadingIcon = { Icon(Icons.Default.Delete, null) },
-                                    onClick = {
-                                        menuOpen = false
-                                        confirmDelete = true
-                                    }
-                                )
-                            }
-                        }
-                    }
-                }
+    LaunchedEffect(current?.tmdbId) {
+        fade.snapTo(0f)
+        vm.resetCinema()
+        vm.loadCinema(current?.tmdbId)
+        fade.animateTo(1f, animationSpec = tween(420))
+    }
+    DisposableEffect(Unit) {
+        onDispose { vm.resetCinema() }
+    }
+
+    val ready = cinemaState as? CinemaUiState.Ready
+    val details = ready?.details
+    val trailer = ready?.trailer
+    val backdrop = details?.backdropUrl.orEmpty().ifBlank { current?.posterUrl.orEmpty() }
+
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(Color(0xFF05060A))
+            .graphicsLayer(alpha = fade.value)
+    ) {
+        if (backdrop.isNotBlank()) {
+            AsyncImage(
+                model = backdrop,
+                contentDescription = null,
+                modifier = Modifier.fillMaxWidth().height(520.dp),
+                contentScale = ContentScale.Crop,
+                alpha = .72f
             )
         }
-    ) { padding ->
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(560.dp)
+                .background(
+                    Brush.verticalGradient(
+                        0f to Color(0x55000000),
+                        .45f to Color(0x22000000),
+                        .82f to Color(0xEE05060A),
+                        1f to Color(0xFF05060A)
+                    )
+                )
+        )
+
         if (current == null) {
-            Box(
-                Modifier.padding(padding).fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) { CircularProgressIndicator() }
+            CircularProgressIndicator(Modifier.align(Alignment.Center))
         } else {
             LazyColumn(
-                Modifier.padding(padding).fillMaxSize(),
-                contentPadding = PaddingValues(bottom = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
+                Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 82.dp, bottom = 36.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 item {
-                    Box(
-                        Modifier
-                            .fillMaxWidth()
-                            .height(245.dp)
+                    Spacer(Modifier.height(330.dp))
+                    Text(
+                        current.title.uppercase(),
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.ExtraBold,
+                        letterSpacing = 2.4.sp,
+                        color = Color.White
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(14.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        if (current.posterUrl.isNotBlank()) {
-                            AsyncImage(
-                                model = current.posterUrl,
-                                contentDescription = current.title,
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Crop,
-                                alpha = .34f
-                            )
-                        }
-                        Box(
-                            Modifier.fillMaxSize().background(
-                                Brush.verticalGradient(
-                                    listOf(
-                                        Color.Transparent,
-                                        MaterialTheme.colorScheme.background.copy(alpha = .35f),
-                                        MaterialTheme.colorScheme.background
-                                    )
-                                )
-                            )
-                        )
-                        Row(
-                            modifier = Modifier
-                                .align(Alignment.BottomStart)
-                                .padding(horizontal = 16.dp, vertical = 8.dp),
-                            horizontalArrangement = Arrangement.spacedBy(16.dp),
-                            verticalAlignment = Alignment.Bottom
-                        ) {
-                            Poster(
-                                current.posterUrl,
-                                current.title,
-                                Modifier.width(116.dp).height(174.dp)
-                            )
-                            Column(
-                                Modifier.weight(1f).padding(bottom = 8.dp),
-                                verticalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                Text(
-                                    current.title,
-                                    style = MaterialTheme.typography.headlineSmall,
-                                    fontWeight = FontWeight.ExtraBold
-                                )
-                                Text(
-                                    listOfNotNull(
-                                        current.year?.toString(),
-                                        current.durationMinutes?.let { "${it / 60}h ${it % 60}min" },
-                                        current.genre.takeIf { it.isNotBlank() }
-                                    ).joinToString(" • "),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                RatingRow(current.rating ?: 0) { vm.setRating(current, it) }
-                                AssistChip(
-                                    onClick = { vm.setWatched(current, !current.watched) },
-                                    label = { Text(if (current.watched) "✓ Déjà vu" else "○ Pas encore vu") }
-                                )
-                            }
+                        current.year?.let { CinemaMeta(Icons.Default.CalendarMonth, it.toString()) }
+                        current.durationMinutes?.let { CinemaMeta(Icons.Default.Schedule, "${it / 60}h ${it % 60}min") }
+                        if (current.rating != null) {
+                            Text("★ ${current.rating}/5", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
 
                 item {
+                    if (cinemaState is CinemaUiState.Loading) {
+                        LinearProgressIndicator(Modifier.fillMaxWidth())
+                    }
                     PremiumButton(
-                        "Mode cinéma",
-                        { Icon(Icons.Default.Movie, null) },
-                        onCinema,
-                        Modifier.fillMaxWidth().padding(horizontal = 14.dp)
+                        if (trailer != null) "Regarder la bande-annonce" else "Bande-annonce indisponible",
+                        { Icon(Icons.Default.PlayCircle, null) },
+                        onClick = {
+                            if (trailer != null) {
+                                val uri = Uri.parse("https://www.youtube.com/watch?v=${trailer.key}")
+                                runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, uri)) }
+                                    .onFailure { Toast.makeText(context, "Impossible d'ouvrir la bande-annonce.", Toast.LENGTH_SHORT).show() }
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = trailer != null
                     )
                 }
 
+                if (current.synopsis.isNotBlank()) {
+                    item {
+                        Text(
+                            current.synopsis,
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = Color.White.copy(alpha = .88f)
+                        )
+                    }
+                }
+
+                if (current.director.isNotBlank() || current.actors.isNotBlank() || current.genre.isNotBlank()) {
+                    item {
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = Color(0xB512141B)),
+                            shape = RoundedCornerShape(18.dp)
+                        ) {
+                            Row(
+                                Modifier.fillMaxWidth().padding(16.dp),
+                                horizontalArrangement = Arrangement.spacedBy(14.dp)
+                            ) {
+                                if (current.director.isNotBlank()) {
+                                    Column(Modifier.weight(1f)) {
+                                        Text("RÉALISATEUR", color = MaterialTheme.colorScheme.primary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                        Text(current.director, color = Color.White)
+                                    }
+                                }
+                                if (current.actors.isNotBlank()) {
+                                    Column(Modifier.weight(1.25f)) {
+                                        Text("AVEC", color = MaterialTheme.colorScheme.primary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                        Text(current.actors, color = Color.White, maxLines = 4, overflow = TextOverflow.Ellipsis)
+                                    }
+                                }
+                                if (current.genre.isNotBlank()) {
+                                    Column(Modifier.weight(1f)) {
+                                        Text("GENRE", color = MaterialTheme.colorScheme.primary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                        Text(current.genre, color = Color.White)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
                 item {
-                    Row(
-                        Modifier.padding(horizontal = 14.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = Color(0xB512141B)),
+                        shape = RoundedCornerShape(18.dp)
                     ) {
+                        Row(
+                            Modifier.fillMaxWidth().padding(16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.Visibility, null, tint = MaterialTheme.colorScheme.primary)
+                            Column(Modifier.weight(1f)) {
+                                Text("STATUT", color = MaterialTheme.colorScheme.primary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                Text(if (current.watched) "Vu" else "Non vu", color = Color.White)
+                            }
+                            RatingRow(current.rating ?: 0) { vm.setRating(current, it) }
+                        }
+                    }
+                }
+
+                if (current.edition.isNotBlank()) {
+                    item {
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = Color(0xB512141B)),
+                            shape = RoundedCornerShape(18.dp)
+                        ) {
+                            Row(
+                                Modifier.fillMaxWidth().padding(16.dp),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Default.BookmarkBorder, null, tint = MaterialTheme.colorScheme.primary)
+                                Column {
+                                    Text("ÉDITION", color = MaterialTheme.colorScheme.primary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                    Text(current.edition, color = Color.White)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                sagaFor(current)?.let { guide ->
+                    item {
+                        Column {
+                            Text("SAGA", color = MaterialTheme.colorScheme.primary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Spacer(Modifier.height(6.dp))
+                            SagaSection(guide, all)
+                        }
+                    }
+                }
+
+                item {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         PremiumOutlineButton(
                             if (current.status == MovieStatus.OWNED) "Souhait" else "Acheté",
                             { Icon(Icons.Default.Favorite, null) },
@@ -1324,44 +1356,78 @@ private fun DetailScreen(
                         )
                         PremiumOutlineButton(
                             "Ce soir",
-                            { Icon(Icons.Default.PlayArrow, null) },
+                            { Icon(Icons.Default.Casino, null) },
                             onWatchGuide,
                             Modifier.weight(1f)
                         )
                     }
                 }
+            }
+        }
 
-                if (current.synopsis.isNotBlank()) {
-                    item {
-                        PremiumInfoCard("Synopsis") {
-                            Text(current.synopsis, style = MaterialTheme.typography.bodyMedium)
-                        }
+        IconButton(
+            onClick = onBack,
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(14.dp)
+                .background(Color(0x88000000), CircleShape)
+        ) {
+            Icon(Icons.Default.ArrowBack, "Retour", tint = Color.White)
+        }
+
+        Box(
+            Modifier
+                .align(Alignment.TopEnd)
+                .padding(14.dp)
+        ) {
+            IconButton(
+                onClick = { menuOpen = true },
+                modifier = Modifier.background(Color(0x88000000), CircleShape)
+            ) {
+                Icon(Icons.Default.MoreVert, "Menu", tint = Color.White)
+            }
+            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                DropdownMenuItem(
+                    text = { Text(if (current?.status == MovieStatus.OWNED) "Ajouter aux souhaits" else "Ajouter à la bibliothèque") },
+                    leadingIcon = { Icon(Icons.Default.FavoriteBorder, null) },
+                    onClick = {
+                        menuOpen = false
+                        current?.let(vm::toggleStatus)
                     }
-                }
-                if (current.director.isNotBlank() || current.actors.isNotBlank()) {
-                    item {
-                        PremiumInfoCard("Casting & équipe") {
-                            if (current.director.isNotBlank()) InfoLine("Réalisation", current.director)
-                            if (current.actors.isNotBlank()) InfoLine("Acteurs", current.actors)
-                        }
+                )
+                DropdownMenuItem(
+                    text = { Text(if (current?.watched == true) "Marquer comme non vu" else "Marquer comme vu") },
+                    leadingIcon = { Icon(Icons.Default.Visibility, null) },
+                    onClick = {
+                        menuOpen = false
+                        current?.let { vm.setWatched(it, !it.watched) }
                     }
-                }
-                if (current.edition.isNotBlank() || current.discCount != null || current.location.isNotBlank()) {
-                    item {
-                        PremiumInfoCard("Informations édition") {
-                            if (current.edition.isNotBlank()) Text("Support / édition : ${current.edition}")
-                            current.discCount?.let { Text("Disques : $it") }
-                            if (current.location.isNotBlank()) Text("Emplacement : ${current.location}")
+                )
+                if (current?.tmdbId != null) {
+                    DropdownMenuItem(
+                        text = { Text("Actualiser depuis TMDB") },
+                        leadingIcon = { Icon(Icons.Default.Refresh, null) },
+                        onClick = {
+                            menuOpen = false
+                            current?.let { film ->
+                                vm.refreshMovieFromTmdb(
+                                    film,
+                                    onDone = { Toast.makeText(context, "Informations actualisées.", Toast.LENGTH_SHORT).show() },
+                                    onError = { Toast.makeText(context, it, Toast.LENGTH_LONG).show() }
+                                )
+                            }
                         }
-                    }
+                    )
                 }
-                sagaFor(current)?.let { guide ->
-                    item {
-                        Column(Modifier.padding(horizontal = 14.dp)) {
-                            SagaSection(guide, all)
-                        }
+                HorizontalDivider()
+                DropdownMenuItem(
+                    text = { Text("Supprimer") },
+                    leadingIcon = { Icon(Icons.Default.Delete, null) },
+                    onClick = {
+                        menuOpen = false
+                        confirmDelete = true
                     }
-                }
+                )
             }
         }
     }
@@ -1373,16 +1439,12 @@ private fun DetailScreen(
             title = { Text("Supprimer ce film ?") },
             text = { Text("« ${current.title} » sera supprimé de Reelio.") },
             confirmButton = {
-                TextButton(
-                    onClick = {
-                        confirmDelete = false
-                        vm.delete(current, onBack)
-                    }
-                ) { Text("Supprimer") }
+                TextButton(onClick = {
+                    confirmDelete = false
+                    vm.delete(current, onBack)
+                }) { Text("Supprimer") }
             },
-            dismissButton = {
-                TextButton(onClick = { confirmDelete = false }) { Text("Annuler") }
-            }
+            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Annuler") } }
         )
     }
 }
