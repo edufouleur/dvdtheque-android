@@ -1,8 +1,8 @@
-# Reelio v1.14 – Cinéma Premium
+# Reelio v1.15 – Cinéma Premium
 
 Mise à jour de la fiche film immersive.
 
-## Changements v1.14
+## Changements v1.15
 - La note n'est plus affichée avec des étoiles dans la fiche.
 - La note numérique apparaît à droite de la durée (`4/5`, ou `—/5` si aucune note).
 - La notation 1 à 5 étoiles est déplacée dans le menu `⋮` de la fiche.
@@ -15,3 +15,9 @@ Mise à jour de la fiche film immersive.
 - Thème sombre par défaut et couleurs dynamiques conservés.
 
 Le même `applicationId` (`fr.dvdtheque.app`) est conservé afin de préserver la compatibilité de mise à jour et les données locales.
+
+
+## Corrections v1.15
+- Le grand visuel TMDB n'utilise plus l'affiche comme image temporaire : fond sombre, puis fondu court du backdrop une fois chargé.
+- Les titres longs utilisent au maximum deux lignes avec une taille et un espacement adaptatifs.
+- Le logo Reelio est dessiné comme une bobine parfaitement circulaire afin d'éviter tout étirement vertical ou horizontal.

@@ -234,12 +234,40 @@ private fun ReelioTopBar(
 
 @Composable
 private fun ReelioReelLogo(modifier: Modifier = Modifier) {
-    Image(
-        painter = painterResource(R.drawable.logo_reelio),
-        contentDescription = "Logo Reelio",
-        modifier = modifier,
-        colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.primary)
-    )
+    val accent = MaterialTheme.colorScheme.primary
+    Canvas(modifier = modifier) {
+        // La bobine est construite dans un carré et reste parfaitement circulaire,
+        // quelle que soit la taille d'affichage demandée.
+        val diameter = size.minDimension * 0.88f
+        val radius = diameter / 2f
+        val center = Offset(size.width / 2f, size.height / 2f)
+
+        drawCircle(color = accent, radius = radius, center = center)
+
+        val holeColor = Color(0xFF090A0E)
+        val orbit = radius * 0.53f
+        val holeRadius = radius * 0.18f
+        listOf(-90f, -18f, 54f, 126f, 198f).forEach { degrees ->
+            val angle = Math.toRadians(degrees.toDouble())
+            drawCircle(
+                color = holeColor,
+                radius = holeRadius,
+                center = Offset(
+                    center.x + (kotlin.math.cos(angle) * orbit).toFloat(),
+                    center.y + (kotlin.math.sin(angle) * orbit).toFloat()
+                )
+            )
+        }
+        drawCircle(color = holeColor, radius = radius * 0.105f, center = center)
+
+        // Petite amorce de pellicule, fidèle au symbole Reelio.
+        drawRoundRect(
+            color = accent,
+            topLeft = Offset(center.x + radius * 0.67f, center.y + radius * 0.52f),
+            size = androidx.compose.ui.geometry.Size(radius * 0.22f, radius * 0.52f),
+            cornerRadius = androidx.compose.ui.geometry.CornerRadius(radius * 0.11f)
+        )
+    }
 }
 
 @Composable
@@ -1163,13 +1191,14 @@ private fun DetailScreen(
     val context = LocalContext.current
     var menuOpen by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
-    val fade = remember { Animatable(0f) }
+    var backdropLoaded by remember(current?.tmdbId) { mutableStateOf(false) }
+    val backdropFade = remember(current?.tmdbId) { Animatable(0f) }
 
     LaunchedEffect(current?.tmdbId) {
-        fade.snapTo(0f)
+        backdropLoaded = false
+        backdropFade.snapTo(0f)
         vm.resetCinema()
         vm.loadCinema(current?.tmdbId)
-        fade.animateTo(1f, animationSpec = tween(420))
     }
     DisposableEffect(Unit) {
         onDispose { vm.resetCinema() }
@@ -1178,22 +1207,31 @@ private fun DetailScreen(
     val ready = cinemaState as? CinemaUiState.Ready
     val details = ready?.details
     val trailer = ready?.trailer
-    val backdrop = details?.backdropUrl.orEmpty().ifBlank { current?.posterUrl.orEmpty() }
+    // Le poster n'est jamais utilisé comme fond temporaire : cela évite le flash
+    // de l'affiche avant l'arrivée du vrai backdrop TMDB.
+    val backdrop = details?.backdropUrl.orEmpty()
 
     Box(
         Modifier
             .fillMaxSize()
             .background(Color(0xFF05060A))
-            .graphicsLayer(alpha = fade.value)
     ) {
         if (backdrop.isNotBlank()) {
             AsyncImage(
                 model = backdrop,
                 contentDescription = null,
-                modifier = Modifier.fillMaxWidth().height(520.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(520.dp)
+                    .graphicsLayer(alpha = backdropFade.value * .72f),
                 contentScale = ContentScale.Crop,
-                alpha = .72f
+                onSuccess = { backdropLoaded = true }
             )
+            LaunchedEffect(backdropLoaded, backdrop) {
+                if (backdropLoaded) {
+                    backdropFade.animateTo(1f, animationSpec = tween(220))
+                }
+            }
         }
         Box(
             Modifier
@@ -1235,12 +1273,23 @@ private fun DetailScreen(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
+                                val titleLength = current.title.length
+                                val adaptiveTitleSize = when {
+                                    titleLength <= 22 -> 26.sp
+                                    titleLength <= 38 -> 22.sp
+                                    titleLength <= 58 -> 19.sp
+                                    else -> 17.sp
+                                }
+                                val adaptiveSpacing = if (titleLength <= 30) 1.5.sp else 0.4.sp
                                 Text(
                                     current.title.uppercase(),
-                                    style = MaterialTheme.typography.headlineMedium,
+                                    fontSize = adaptiveTitleSize,
+                                    lineHeight = adaptiveTitleSize * 1.08f,
                                     fontWeight = FontWeight.ExtraBold,
-                                    letterSpacing = 2.0.sp,
+                                    letterSpacing = adaptiveSpacing,
                                     color = Color.White,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
                                     modifier = Modifier.weight(1f)
                                 )
                                 IconButton(
@@ -1486,7 +1535,7 @@ private fun CinemaModeScreen(
     val current = movie
     val ready = cinemaState as? CinemaUiState.Ready
     val details = ready?.details
-    val backdrop = details?.backdropUrl.orEmpty().ifBlank { current?.posterUrl.orEmpty() }
+    val backdrop = details?.backdropUrl.orEmpty()
     val trailer = ready?.trailer
 
     Box(
