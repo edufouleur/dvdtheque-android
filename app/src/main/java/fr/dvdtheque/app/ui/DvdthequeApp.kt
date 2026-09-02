@@ -96,7 +96,7 @@ fun DvdthequeApp(vm: MovieViewModel = viewModel()) {
     val context = LocalContext.current
     val prefs = remember { context.getSharedPreferences("reelio_preferences", Context.MODE_PRIVATE) }
     var themeMode by remember {
-        mutableStateOf(runCatching { ReelioThemeMode.valueOf(prefs.getString("theme", "AUTO") ?: "AUTO") }.getOrDefault(ReelioThemeMode.AUTO))
+        mutableStateOf(runCatching { ReelioThemeMode.valueOf(prefs.getString("theme", "DARK") ?: "DARK") }.getOrDefault(ReelioThemeMode.DARK))
     }
     var accent by remember {
         mutableStateOf(runCatching { AccentChoice.valueOf(prefs.getString("accent", "VIOLET") ?: "VIOLET") }.getOrDefault(AccentChoice.VIOLET))
@@ -620,9 +620,9 @@ private fun WishlistScreen(vm: MovieViewModel, onOpen: (Long) -> Unit, onAdd: ()
             }
             if (discovery.loading) item { Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() } }
             discovery.error?.let { message -> item { Text(message, modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.error) } }
-            if (discovery.cinema.isNotEmpty()) item { DiscoverySection("🎬 Au cinéma", "Films actuellement ou récemment en salles", discovery.cinema, all, vm) }
-            if (discovery.forYou.isNotEmpty()) item { DiscoverySection("✨ Pour vous", "Inspiré de votre bibliothèque", discovery.forYou, all, vm) }
-            if (discovery.physical.isNotEmpty()) item { DiscoverySection("💿 DVD / Blu-ray", "Sorties physiques détectées en France", discovery.physical, all, vm) }
+            if (discovery.cinema.isNotEmpty()) item { DiscoverySection("Au cinéma", Icons.Default.MovieCreation, "Films actuellement ou récemment en salles", discovery.cinema, all, vm) }
+            if (discovery.forYou.isNotEmpty()) item { DiscoverySection("Pour vous", Icons.Default.AutoAwesome, "Inspiré de votre bibliothèque", discovery.forYou, all, vm) }
+            if (discovery.physical.isNotEmpty()) item { DiscoverySection("DVD / Blu-ray", Icons.Default.Album, "Sorties physiques détectées en France", discovery.physical, all, vm) }
             item { Spacer(Modifier.height(8.dp)) }
         }
     }
@@ -647,9 +647,15 @@ private fun WishlistMovieCard(movie: Movie, onOpen: (Long) -> Unit) {
 }
 
 @Composable
-private fun DiscoverySection(title: String, subtitle: String, results: List<TmdbMovieResult>, all: List<Movie>, vm: MovieViewModel) {
+private fun DiscoverySection(title: String, icon: androidx.compose.ui.graphics.vector.ImageVector, subtitle: String, results: List<TmdbMovieResult>, all: List<Movie>, vm: MovieViewModel) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        SectionHeader(title, subtitle)
+        Column(Modifier.padding(horizontal = 16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
+                Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            }
+            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
         LazyRow(contentPadding = PaddingValues(horizontal = 14.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             items(results, key = { it.id }) { result ->
                 val existing = all.firstOrNull { it.tmdbId == result.id }
@@ -1213,22 +1219,34 @@ private fun DetailScreen(
             ) {
                 item {
                     Spacer(Modifier.height(330.dp))
-                    Text(
-                        current.title.uppercase(),
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.ExtraBold,
-                        letterSpacing = 2.4.sp,
-                        color = Color.White
-                    )
-                    Spacer(Modifier.height(8.dp))
                     Row(
+                        Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(14.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.Bottom
                     ) {
-                        current.year?.let { CinemaMeta(Icons.Default.CalendarMonth, it.toString()) }
-                        current.durationMinutes?.let { CinemaMeta(Icons.Default.Schedule, "${it / 60}h ${it % 60}min") }
-                        if (current.rating != null) {
-                            Text("★ ${current.rating}/5", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                        Poster(
+                            current.posterUrl,
+                            current.title,
+                            Modifier.width(104.dp).height(156.dp).clip(RoundedCornerShape(12.dp))
+                        )
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(
+                                current.title.uppercase(),
+                                style = MaterialTheme.typography.headlineMedium,
+                                fontWeight = FontWeight.ExtraBold,
+                                letterSpacing = 2.0.sp,
+                                color = Color.White
+                            )
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                current.year?.let { CinemaMeta(Icons.Default.CalendarMonth, it.toString()) }
+                                current.durationMinutes?.let { CinemaMeta(Icons.Default.Schedule, "${it / 60}h ${it % 60}min") }
+                            }
+                            if (current.rating != null) {
+                                Text("★ ${current.rating}/5", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                            }
                         }
                     }
                 }
@@ -1265,29 +1283,32 @@ private fun DetailScreen(
                 if (current.director.isNotBlank() || current.actors.isNotBlank() || current.genre.isNotBlank()) {
                     item {
                         Card(
-                            colors = CardDefaults.cardColors(containerColor = Color(0xB512141B)),
-                            shape = RoundedCornerShape(18.dp)
+                            colors = CardDefaults.cardColors(containerColor = Color(0xD012141B)),
+                            shape = RoundedCornerShape(18.dp),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = .45f))
                         ) {
-                            Row(
-                                Modifier.fillMaxWidth().padding(16.dp),
-                                horizontalArrangement = Arrangement.spacedBy(14.dp)
+                            Column(
+                                Modifier.fillMaxWidth().padding(18.dp),
+                                verticalArrangement = Arrangement.spacedBy(16.dp)
                             ) {
                                 if (current.director.isNotBlank()) {
-                                    Column(Modifier.weight(1f)) {
-                                        Text("RÉALISATEUR", color = MaterialTheme.colorScheme.primary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                        Text(current.director, color = Color.White)
+                                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        Text("RÉALISATEUR", color = MaterialTheme.colorScheme.primary, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold)
+                                        Text(current.director, color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
                                     }
                                 }
                                 if (current.actors.isNotBlank()) {
-                                    Column(Modifier.weight(1.25f)) {
-                                        Text("AVEC", color = MaterialTheme.colorScheme.primary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                        Text(current.actors, color = Color.White, maxLines = 4, overflow = TextOverflow.Ellipsis)
+                                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = .3f))
+                                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        Text("ACTEURS PRINCIPAUX", color = MaterialTheme.colorScheme.primary, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold)
+                                        Text(current.actors, color = Color.White, fontSize = 16.sp, lineHeight = 23.sp)
                                     }
                                 }
                                 if (current.genre.isNotBlank()) {
-                                    Column(Modifier.weight(1f)) {
-                                        Text("GENRE", color = MaterialTheme.colorScheme.primary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                        Text(current.genre, color = Color.White)
+                                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = .3f))
+                                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        Text("GENRE", color = MaterialTheme.colorScheme.primary, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold)
+                                        Text(current.genre, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Medium)
                                     }
                                 }
                             }
@@ -1297,41 +1318,34 @@ private fun DetailScreen(
 
                 item {
                     Card(
-                        colors = CardDefaults.cardColors(containerColor = Color(0xB512141B)),
-                        shape = RoundedCornerShape(18.dp)
+                        colors = CardDefaults.cardColors(containerColor = Color(0xD012141B)),
+                        shape = RoundedCornerShape(18.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = .45f))
                     ) {
                         Row(
-                            Modifier.fillMaxWidth().padding(16.dp),
+                            Modifier.fillMaxWidth().padding(14.dp),
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(Icons.Default.Visibility, null, tint = MaterialTheme.colorScheme.primary)
+                            IconButton(
+                                onClick = { vm.setWatched(current, !current.watched) },
+                                modifier = Modifier
+                                    .size(52.dp)
+                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = .14f), CircleShape)
+                            ) {
+                                Icon(
+                                    if (current.watched) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                                    contentDescription = if (current.watched) "Marquer comme pas vu" else "Marquer comme vu",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(30.dp)
+                                )
+                            }
                             Column(Modifier.weight(1f)) {
                                 Text("STATUT", color = MaterialTheme.colorScheme.primary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                Text(if (current.watched) "Vu" else "Non vu", color = Color.White)
+                                Text(if (current.watched) "Vu" else "Pas vu", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+                                Text("Appuyez sur l’œil pour changer", color = Color.White.copy(alpha = .6f), fontSize = 12.sp)
                             }
                             RatingRow(current.rating ?: 0) { vm.setRating(current, it) }
-                        }
-                    }
-                }
-
-                if (current.edition.isNotBlank()) {
-                    item {
-                        Card(
-                            colors = CardDefaults.cardColors(containerColor = Color(0xB512141B)),
-                            shape = RoundedCornerShape(18.dp)
-                        ) {
-                            Row(
-                                Modifier.fillMaxWidth().padding(16.dp),
-                                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(Icons.Default.BookmarkBorder, null, tint = MaterialTheme.colorScheme.primary)
-                                Column {
-                                    Text("ÉDITION", color = MaterialTheme.colorScheme.primary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                    Text(current.edition, color = Color.White)
-                                }
-                            }
                         }
                     }
                 }

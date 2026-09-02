@@ -1,4 +1,4 @@
-# Reelio v1.12 – Fiche cinéma unifiée
+# Reelio v1.13 – Fiche cinéma unifiée
 
 Cette version fusionne la fiche film de la bibliothèque et le Mode Cinéma dans un seul écran vertical immersif.
 
@@ -10,6 +10,6 @@ Cette version fusionne la fiche film de la bibliothèque et le Mode Cinéma dans
 - Informations volontairement retirées de la fiche : date d'ajout, date de visionnage, emplacement, état du DVD, nombre de disques et note personnelle.
 - Conservation de l'édition/support et de la saga.
 - Effets d'apparition discrets.
-- Version Android : 1.12 (versionCode 12).
+- Version Android : 1.13 (versionCode 13).
 
 La compilation est prévue via GitHub Actions avec le secret TMDB_TOKEN.
