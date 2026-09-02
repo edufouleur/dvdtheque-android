@@ -1,0 +1,9 @@
+Reelio v1.17 — Corrections fiche film et paramètres
+
+- Titres en un seul mot : réduction progressive de la police, une seule ligne, sans points de suspension.
+- Note directement cliquable à côté de la durée.
+- Affichage de la note : -/5 ★, 1/5 ★ ... 5/5 ★.
+- L'étoile et les étoiles de sélection suivent la couleur choisie dans Paramètres > Couleurs.
+- La notation n'est plus dupliquée dans le menu ⋮.
+- L'icône Données suit la couleur d'accentuation et utilise la même taille (24 dp) que Thème et Couleurs.
+- Fondu du grand visuel d'arrière-plan ralenti pour une transition plus cinématographique.

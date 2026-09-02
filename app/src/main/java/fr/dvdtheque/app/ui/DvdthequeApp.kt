@@ -1166,6 +1166,7 @@ private fun DetailScreen(
     val context = LocalContext.current
     var menuOpen by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
+    var ratingDialogOpen by remember { mutableStateOf(false) }
     var backdropLoaded by remember(current?.tmdbId) { mutableStateOf(false) }
     val backdropFade = remember(current?.tmdbId) { Animatable(0f) }
 
@@ -1204,7 +1205,7 @@ private fun DetailScreen(
             )
             LaunchedEffect(backdropLoaded, backdrop) {
                 if (backdropLoaded) {
-                    backdropFade.animateTo(1f, animationSpec = tween(800))
+                    backdropFade.animateTo(1f, animationSpec = tween(1100))
                 }
             }
         }
@@ -1252,11 +1253,16 @@ private fun DetailScreen(
                                 val titleLength = cleanTitle.length
                                 val singleWordTitle = cleanTitle.isNotEmpty() && cleanTitle.none { it.isWhitespace() }
                                 val adaptiveTitleSize = if (singleWordTitle) {
+                                    // Un seul mot : jamais de coupure ni de points de suspension.
                                     when {
-                                        titleLength <= 12 -> 27.sp
-                                        titleLength <= 18 -> 23.sp
-                                        titleLength <= 24 -> 19.sp
-                                        else -> 16.sp
+                                        titleLength <= 10 -> 27.sp
+                                        titleLength <= 14 -> 24.sp
+                                        titleLength <= 18 -> 21.sp
+                                        titleLength <= 22 -> 18.sp
+                                        titleLength <= 26 -> 16.sp
+                                        titleLength <= 32 -> 14.sp
+                                        titleLength <= 38 -> 12.sp
+                                        else -> 10.sp
                                     }
                                 } else {
                                     when {
@@ -1276,7 +1282,7 @@ private fun DetailScreen(
                                     color = Color.White,
                                     maxLines = if (singleWordTitle) 1 else 2,
                                     softWrap = !singleWordTitle,
-                                    overflow = TextOverflow.Ellipsis,
+                                    overflow = if (singleWordTitle) TextOverflow.Clip else TextOverflow.Ellipsis,
                                     modifier = Modifier.weight(1f)
                                 )
                                 IconButton(
@@ -1299,12 +1305,30 @@ private fun DetailScreen(
                             ) {
                                 current.year?.let { CinemaMeta(Icons.Default.CalendarMonth, it.toString()) }
                                 current.durationMinutes?.let { CinemaMeta(Icons.Default.Schedule, "${it / 60}h ${it % 60}min") }
-                                Text(
-                                    current.rating?.let { "$it/5" } ?: "—/5",
-                                    color = Color.White,
-                                    fontWeight = FontWeight.SemiBold,
-                                    fontSize = 16.sp
-                                )
+                                Surface(
+                                    onClick = { ratingDialogOpen = true },
+                                    color = Color.Transparent,
+                                    shape = RoundedCornerShape(10.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        Text(
+                                            current.rating?.let { "$it/5" } ?: "-/5",
+                                            color = Color.White,
+                                            fontWeight = FontWeight.SemiBold,
+                                            fontSize = 16.sp
+                                        )
+                                        Icon(
+                                            Icons.Default.Star,
+                                            contentDescription = "Noter le film",
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
@@ -1428,13 +1452,6 @@ private fun DetailScreen(
                 Icon(Icons.Default.MoreVert, "Menu", tint = Color.White)
             }
             DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                current?.let { film ->
-                    Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
-                        Text("Ma note", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                        RatingRow(film.rating ?: 0) { vm.setRating(film, it) }
-                    }
-                    HorizontalDivider()
-                }
                 DropdownMenuItem(
                     text = { Text(if (current?.status == MovieStatus.OWNED) "Ajouter aux souhaits" else "Ajouter à la bibliothèque") },
                     leadingIcon = { Icon(Icons.Default.FavoriteBorder, null) },
@@ -1478,6 +1495,30 @@ private fun DetailScreen(
                 )
             }
         }
+    }
+
+    if (ratingDialogOpen && current != null) {
+        AlertDialog(
+            onDismissRequest = { ratingDialogOpen = false },
+            icon = { Icon(Icons.Default.Star, null, tint = MaterialTheme.colorScheme.primary) },
+            title = { Text("Noter ${current.title}") },
+            text = {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    RatingRow(current.rating ?: 0) { value ->
+                        vm.setRating(current, value)
+                        ratingDialogOpen = false
+                    }
+                    if (current.rating != null) {
+                        TextButton(onClick = {
+                            vm.save(current.copy(rating = null))
+                            ratingDialogOpen = false
+                        }) { Text("Retirer la note") }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = { TextButton(onClick = { ratingDialogOpen = false }) { Text("Annuler") } }
+        )
     }
 
     if (confirmDelete && current != null) {
@@ -1761,7 +1802,7 @@ private fun PremiumInfoCard(title: String, content: @Composable ColumnScope.() -
 
 @Composable
 private fun RatingRow(rating: Int, onRate: (Int) -> Unit) {
-    Row { (1..5).forEach { n -> IconButton(onClick = { onRate(n) }, modifier = Modifier.size(34.dp)) { Icon(if (n <= rating) Icons.Default.Star else Icons.Default.StarBorder, "Note $n", tint = if (n <= rating) Color(0xFFFFC928) else MaterialTheme.colorScheme.onSurfaceVariant) } } }
+    Row { (1..5).forEach { n -> IconButton(onClick = { onRate(n) }, modifier = Modifier.size(34.dp)) { Icon(if (n <= rating) Icons.Default.Star else Icons.Default.StarBorder, "Note $n", tint = if (n <= rating) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant) } } }
 }
 
 @Composable
@@ -2195,7 +2236,19 @@ private fun SettingsScreen(
             }
 
             item {
-                SettingsCard("🔒 DONNÉES") {
+                SettingsCard("") {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Storage,
+                            contentDescription = "Données",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Text("Données", fontWeight = FontWeight.Bold)
+                    }
                     SettingsActionRow(
                         icon = Icons.Default.Backup,
                         title = "Sauvegarder",
@@ -2345,12 +2398,14 @@ private fun SettingsCard(
     content: @Composable ColumnScope.() -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(
-            title,
-            style = MaterialTheme.typography.labelLarge,
-            fontWeight = FontWeight.ExtraBold,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        if (title.isNotBlank()) {
+            Text(
+                title,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.ExtraBold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
         Card(
             shape = RoundedCornerShape(18.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
