@@ -8,6 +8,9 @@ interface MovieDao {
     @Query("SELECT * FROM movies")
     fun observeAll(): Flow<List<Movie>>
 
+    @Query("SELECT * FROM movies")
+    suspend fun getAllOnce(): List<Movie>
+
     @Query("SELECT * FROM movies WHERE id = :id LIMIT 1")
     fun observeById(id: Long): Flow<Movie?>
 

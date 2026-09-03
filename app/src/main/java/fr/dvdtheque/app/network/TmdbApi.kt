@@ -15,6 +15,31 @@ interface TmdbApi {
         @Query("page") page: Int = 1
     ): TmdbSearchResponse
 
+
+    @GET("search/tv")
+    suspend fun searchTv(
+        @Header("Authorization") authorization: String,
+        @Query("query") query: String,
+        @Query("language") language: String = "fr-FR",
+        @Query("include_adult") includeAdult: Boolean = false,
+        @Query("page") page: Int = 1
+    ): TmdbTvSearchResponse
+
+    @GET("tv/{tvId}")
+    suspend fun tvDetails(
+        @Header("Authorization") authorization: String,
+        @Path("tvId") tvId: Int,
+        @Query("language") language: String = "fr-FR",
+        @Query("append_to_response") appendToResponse: String = "credits"
+    ): TmdbTvDetails
+
+    @GET("tv/{tvId}/videos")
+    suspend fun tvVideos(
+        @Header("Authorization") authorization: String,
+        @Path("tvId") tvId: Int,
+        @Query("language") language: String = "fr-FR"
+    ): TmdbVideoResponse
+
     @GET("movie/{movieId}")
     suspend fun movieDetails(
         @Header("Authorization") authorization: String,

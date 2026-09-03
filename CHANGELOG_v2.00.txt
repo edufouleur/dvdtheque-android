@@ -1,0 +1,16 @@
+Reelio v2.00 — Films & Séries
+
+- Gestion des films et des séries TV dans une même bibliothèque.
+- Recherche TMDB sur les films et les séries.
+- Filtre Bibliothèque : Tout / Films / Séries.
+- Fiche série avec nombre de saisons et d'épisodes.
+- Sélection des saisons possédées, sans souhait par saison.
+- Le souhait reste au niveau de la série complète.
+- Bande-annonce TMDB/YouTube adaptée aux séries.
+- Base Room migrée en version 4 en conservant les données existantes.
+- Sauvegarde quotidienne : 1 fichier maximum, créé à la première ouverture du jour.
+- Sauvegardes automatiques après modification : 3 fichiers maximum.
+- Sauvegardes quotidiennes et actives regroupées dans le dossier interne Sauvegarde.
+- Restauration directe d'une sauvegarde automatique depuis Paramètres > Données.
+- Conservation de la sauvegarde/export manuel JSON et CSV.
+- Design Cinéma Premium, thème sombre par défaut et couleur d'accent dynamique conservés.

@@ -21,10 +21,17 @@ class TmdbRepository {
             return "Bearer $token"
         }
 
-    suspend fun search(query: String): List<TmdbMovieResult> = api.searchMovies(authorization, query.trim()).results
-    suspend fun details(id: Int): TmdbMovieDetails = api.movieDetails(authorization, id)
+    suspend fun search(query: String): List<TmdbMovieResult> {
+        val clean = query.trim()
+        val movies = api.searchMovies(authorization, clean).results
+        val series = api.searchTv(authorization, clean).results.map { it.asCatalogResult() }
+        return (movies + series).sortedWith(compareBy<TmdbMovieResult> { if (it.mediaType == "movie") 0 else 1 }.thenByDescending { it.year ?: 0 })
+    }
 
-    suspend fun trailer(id: Int): TmdbVideo? {
+    suspend fun details(id: Int, mediaType: String = "movie"): TmdbMovieDetails =
+        if (mediaType == "tv") api.tvDetails(authorization, id).asMovieDetails() else api.movieDetails(authorization, id)
+
+    suspend fun trailer(id: Int, mediaType: String = "movie"): TmdbVideo? {
         fun choose(videos: List<TmdbVideo>): TmdbVideo? = videos
             .filter { it.site.equals("YouTube", true) && it.key.isNotBlank() }
             .sortedWith(compareByDescending<TmdbVideo> { it.official }.thenBy { video ->
@@ -36,15 +43,17 @@ class TmdbRepository {
             })
             .firstOrNull()
 
-        val french = choose(api.movieVideos(authorization, id, "fr-FR").results)
+        val frenchVideos = if (mediaType == "tv") api.tvVideos(authorization, id, "fr-FR").results else api.movieVideos(authorization, id, "fr-FR").results
+        val french = choose(frenchVideos)
         if (french != null) return french
-        return choose(api.movieVideos(authorization, id, "en-US").results)
+        val englishVideos = if (mediaType == "tv") api.tvVideos(authorization, id, "en-US").results else api.movieVideos(authorization, id, "en-US").results
+        return choose(englishVideos)
     }
     suspend fun nowPlaying(): List<TmdbMovieResult> = api.nowPlaying(authorization).results.take(20)
     suspend fun popular(): List<TmdbMovieResult> = api.popular(authorization).results.take(20)
 
     suspend fun recommendations(movies: List<Movie>): List<TmdbMovieResult> {
-        val seed = movies.filter { it.status == MovieStatus.OWNED && it.tmdbId != null }
+        val seed = movies.filter { it.status == MovieStatus.OWNED && it.tmdbId != null && it.mediaType == "movie" }
             .maxByOrNull { it.addedAt }?.tmdbId
         return if (seed != null) api.recommendations(authorization, seed).results.take(20) else popular()
     }
@@ -79,7 +88,10 @@ class TmdbRepository {
             synopsis = details.overview,
             posterUrl = details.posterUrl,
             status = status,
-            tmdbId = details.id
+            tmdbId = details.id,
+            mediaType = details.mediaType,
+            totalSeasons = details.totalSeasons,
+            totalEpisodes = details.totalEpisodes
         )
     }
 }

@@ -35,6 +35,11 @@ sealed interface CinemaUiState {
 class MovieViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = MovieRepository(AppDatabase.get(application).movieDao())
     private val tmdbRepository = TmdbRepository()
+    private val backupManager = BackupManager(application, repository)
+
+    init {
+        viewModelScope.launch { backupManager.ensureDailyBackup() }
+    }
 
     private val _query = MutableStateFlow("")
     val query = _query.asStateFlow()
@@ -77,9 +82,9 @@ class MovieViewModel(application: Application) : AndroidViewModel(application) {
         catch (e: Exception) { TmdbUiState.Error(e.message ?: "Erreur de recherche TMDB") }
     }
 
-    fun loadTmdbDetails(id: Int) = viewModelScope.launch {
+    fun loadTmdbDetails(id: Int, mediaType: String = "movie") = viewModelScope.launch {
         _tmdbState.value = TmdbUiState.Loading
-        _tmdbState.value = try { TmdbUiState.Preview(tmdbRepository.details(id)) }
+        _tmdbState.value = try { TmdbUiState.Preview(tmdbRepository.details(id, mediaType)) }
         catch (e: Exception) { TmdbUiState.Error(e.message ?: "Impossible de charger les détails") }
     }
 
@@ -103,29 +108,31 @@ class MovieViewModel(application: Application) : AndroidViewModel(application) {
 
     fun addTmdbMovie(details: TmdbMovieDetails, status: MovieStatus, onSaved: () -> Unit) = viewModelScope.launch {
         repository.save(tmdbRepository.toMovie(details, status))
+        backupManager.createActiveBackup()
         _tmdbState.value = TmdbUiState.Idle
         onSaved()
     }
 
     fun addSuggestionToWishlist(result: TmdbMovieResult, onSaved: (() -> Unit)? = null) = viewModelScope.launch {
         try {
-            val details = tmdbRepository.details(result.id)
+            val details = tmdbRepository.details(result.id, result.mediaType)
             repository.save(tmdbRepository.toMovie(details, MovieStatus.WANTED))
+            backupManager.createActiveBackup()
             onSaved?.invoke()
         } catch (_: Exception) { }
     }
 
     fun resetTmdb() { _tmdbState.value = TmdbUiState.Idle }
 
-    fun loadCinema(tmdbId: Int?) = viewModelScope.launch {
+    fun loadCinema(tmdbId: Int?, mediaType: String = "movie") = viewModelScope.launch {
         if (tmdbId == null) {
             _cinemaState.value = CinemaUiState.Error("Aucune fiche TMDB liée à ce film.")
             return@launch
         }
         _cinemaState.value = CinemaUiState.Loading
         _cinemaState.value = try {
-            val details = tmdbRepository.details(tmdbId)
-            val trailer = runCatching { tmdbRepository.trailer(tmdbId) }.getOrNull()
+            val details = tmdbRepository.details(tmdbId, mediaType)
+            val trailer = runCatching { tmdbRepository.trailer(tmdbId, mediaType) }.getOrNull()
             CinemaUiState.Ready(details, trailer)
         } catch (e: Exception) {
             CinemaUiState.Error(e.message ?: "Impossible de charger le mode cinéma")
@@ -134,7 +141,9 @@ class MovieViewModel(application: Application) : AndroidViewModel(application) {
 
     fun resetCinema() { _cinemaState.value = CinemaUiState.Idle }
     fun save(movie: Movie, onSaved: (() -> Unit)? = null) = viewModelScope.launch {
-        repository.save(movie); onSaved?.invoke()
+        repository.save(movie)
+        backupManager.createActiveBackup()
+        onSaved?.invoke()
     }
     fun toggleStatus(movie: Movie) = save(movie.copy(status = if (movie.status == MovieStatus.OWNED) MovieStatus.WANTED else MovieStatus.OWNED))
     fun setWatched(movie: Movie, watched: Boolean) = save(movie.copy(watched = watched))
@@ -150,7 +159,7 @@ class MovieViewModel(application: Application) : AndroidViewModel(application) {
             return@launch
         }
         try {
-            val details = tmdbRepository.details(tmdbId)
+            val details = tmdbRepository.details(tmdbId, movie.mediaType)
             val refreshed = tmdbRepository.toMovie(details, movie.status).copy(
                 id = movie.id,
                 rating = movie.rating,
@@ -159,9 +168,16 @@ class MovieViewModel(application: Application) : AndroidViewModel(application) {
                 discCount = movie.discCount,
                 location = movie.location,
                 addedAt = movie.addedAt,
-                watched = movie.watched
+                watched = movie.watched,
+                mediaType = movie.mediaType,
+                totalSeasons = details.totalSeasons ?: movie.totalSeasons,
+                totalEpisodes = details.totalEpisodes ?: movie.totalEpisodes,
+                ownedSeasons = movie.ownedSeasons,
+                currentSeason = movie.currentSeason,
+                currentEpisode = movie.currentEpisode
             )
             repository.save(refreshed)
+            backupManager.createActiveBackup()
             onDone?.invoke()
         } catch (e: Exception) {
             onError?.invoke(e.message ?: "Impossible d'actualiser ce film.")
@@ -169,15 +185,43 @@ class MovieViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun delete(movie: Movie, onDeleted: (() -> Unit)? = null) = viewModelScope.launch {
-        repository.delete(movie); onDeleted?.invoke()
+        repository.delete(movie)
+        backupManager.createActiveBackup()
+        onDeleted?.invoke()
     }
     fun restoreMovies(restored: List<Movie>, onDone: (() -> Unit)? = null) = viewModelScope.launch {
         repository.replaceAll(restored)
+        backupManager.createActiveBackup()
         onDone?.invoke()
+    }
+
+    fun toggleOwnedSeason(movie: Movie, season: Int) {
+        val current = movie.ownedSeasons.split(",").mapNotNull { it.toIntOrNull() }.toMutableSet()
+        if (!current.add(season)) current.remove(season)
+        save(movie.copy(ownedSeasons = current.sorted().joinToString(",")))
+    }
+
+    fun setSeriesProgress(movie: Movie, season: Int?, episode: Int?) =
+        save(movie.copy(currentSeason = season, currentEpisode = episode))
+
+    fun backupFolderPath(): String = backupManager.folderPath()
+    fun latestDailyBackupName(): String? = backupManager.dailyFile()?.name
+    fun activeBackupNames(): List<String> = backupManager.activeFiles().map { it.name }
+    fun allInternalBackupNames(): List<String> = backupManager.allBackupNames()
+
+    fun restoreInternalBackup(name: String, onDone: (() -> Unit)? = null, onError: ((String) -> Unit)? = null) = viewModelScope.launch {
+        try {
+            repository.replaceAll(backupManager.read(name))
+            backupManager.createActiveBackup()
+            onDone?.invoke()
+        } catch (e: Exception) {
+            onError?.invoke(e.message ?: "Sauvegarde invalide")
+        }
     }
 
     fun resetAll(onDone: (() -> Unit)? = null) = viewModelScope.launch {
         repository.deleteAll()
+        backupManager.createActiveBackup()
         _query.value = ""
         _sort.value = MovieSort.TITLE_ASC
         _tmdbState.value = TmdbUiState.Idle

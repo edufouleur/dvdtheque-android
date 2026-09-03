@@ -375,11 +375,13 @@ private fun LibraryScreen(
     val query by vm.query.collectAsStateWithLifecycle()
     val sort by vm.sort.collectAsStateWithLifecycle()
     var watchedFilter by remember { mutableStateOf<Boolean?>(null) }
+    var mediaFilter by remember { mutableStateOf("all") }
     var showSort by remember { mutableStateOf(false) }
     var searchOpen by remember { mutableStateOf(false) }
 
     val owned = all.filter { it.status == MovieStatus.OWNED }
-    val movies = owned.filter { watchedFilter == null || it.watched == watchedFilter }
+    val mediaOwned = owned.filter { mediaFilter == "all" || it.mediaType == mediaFilter }
+    val movies = mediaOwned.filter { watchedFilter == null || it.watched == watchedFilter }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -420,13 +422,22 @@ private fun LibraryScreen(
             }
 
             Row(
+                Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                FilterChip(selected = mediaFilter == "all", onClick = { mediaFilter = "all" }, label = { Text("Tout") })
+                FilterChip(selected = mediaFilter == "movie", onClick = { mediaFilter = "movie" }, label = { Text("Films") })
+                FilterChip(selected = mediaFilter == "tv", onClick = { mediaFilter = "tv" }, label = { Text("Séries") })
+            }
+
+            Row(
                 Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 FilterChip(
                     selected = watchedFilter == null,
                     onClick = { watchedFilter = null },
-                    label = { Text("Tous (${owned.size})") }
+                    label = { Text("Tous (${mediaOwned.size})") }
                 )
                 FilterChip(
                     selected = watchedFilter == true,
@@ -448,7 +459,11 @@ private fun LibraryScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    "${movies.size} film${if (movies.size > 1) "s" else ""}",
+                    when (mediaFilter) {
+                        "tv" -> "${movies.size} série${if (movies.size > 1) "s" else ""}"
+                        "movie" -> "${movies.size} film${if (movies.size > 1) "s" else ""}"
+                        else -> "${movies.size} titre${if (movies.size > 1) "s" else ""}"
+                    },
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -461,8 +476,8 @@ private fun LibraryScreen(
 
             if (movies.isEmpty()) {
                 EmptyState(
-                    "Aucun film dans la bibliothèque",
-                    "Ajoute ton premier film pour commencer.",
+                    "Aucun titre dans la bibliothèque",
+                    "Ajoute ton premier film ou ta première série pour commencer.",
                     onAdd
                 )
             } else {
@@ -661,8 +676,8 @@ private fun DiscoverySection(title: String, icon: androidx.compose.ui.graphics.v
         }
         LazyRow(contentPadding = PaddingValues(horizontal = 14.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             items(results, key = { it.id }) { result ->
-                val existing = all.firstOrNull { it.tmdbId == result.id }
-                SuggestionCard(result, existing, onHeart = { if (existing == null) vm.addSuggestionToWishlist(result) }, onOpen = { vm.loadTmdbDetails(result.id) })
+                val existing = all.firstOrNull { it.tmdbId == result.id && it.mediaType == result.mediaType }
+                SuggestionCard(result, existing, onHeart = { if (existing == null) vm.addSuggestionToWishlist(result) }, onOpen = { vm.loadTmdbDetails(result.id, result.mediaType) })
             }
         }
     }
@@ -713,22 +728,25 @@ private fun TmdbSearchTab(vm: MovieViewModel, onSaved: () -> Unit) {
     val state by vm.tmdbState.collectAsStateWithLifecycle()
     Column(Modifier.fillMaxSize().padding(14.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedTextField(value = text, onValueChange = { text = it }, modifier = Modifier.weight(1f), singleLine = true, shape = RoundedCornerShape(16.dp), label = { Text("Titre du film") }, leadingIcon = { Icon(Icons.Default.Search, null) })
+            OutlinedTextField(value = text, onValueChange = { text = it }, modifier = Modifier.weight(1f), singleLine = true, shape = RoundedCornerShape(16.dp), label = { Text("Film ou série") }, leadingIcon = { Icon(Icons.Default.Search, null) })
             PremiumButton("Chercher", onClick = { vm.searchTmdb(text) })
         }
         Spacer(Modifier.height(12.dp))
         when (val s = state) {
-            TmdbUiState.Idle -> Text("Saisis un titre pour rechercher automatiquement les informations TMDB.")
+            TmdbUiState.Idle -> Text("Saisis un titre de film ou de série pour rechercher automatiquement les informations TMDB.")
             TmdbUiState.Loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
             is TmdbUiState.Error -> Text(s.message, color = MaterialTheme.colorScheme.error)
             is TmdbUiState.Results -> LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(s.movies, key = { it.id }) { result ->
-                    Card(onClick = { vm.loadTmdbDetails(result.id) }, shape = RoundedCornerShape(14.dp)) {
+                items(s.movies, key = { "${it.mediaType}-${it.id}" }) { result ->
+                    Card(onClick = { vm.loadTmdbDetails(result.id, result.mediaType) }, shape = RoundedCornerShape(14.dp)) {
                         Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
                             Poster(result.posterUrl, result.title, Modifier.width(70.dp).height(105.dp))
                             Spacer(Modifier.width(12.dp))
                             Column {
-                                Text(result.title, fontWeight = FontWeight.Bold)
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Text(result.title, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f, fill = false))
+                                    AssistChip(onClick = {}, label = { Text(if (result.mediaType == "tv") "Série" else "Film") })
+                                }
                                 result.year?.let { Text(it.toString()) }
                                 if (result.originalTitle.isNotBlank() && result.originalTitle != result.title) Text(result.originalTitle, style = MaterialTheme.typography.bodySmall)
                             }
@@ -988,9 +1006,9 @@ private fun PhotoSearchTab(vm: MovieViewModel, onSaved: () -> Unit) {
                 if (currentState.movies.isEmpty()) {
                     item { Text("Aucun résultat TMDB. Corrige le titre détecté puis relance la recherche.") }
                 } else {
-                    items(currentState.movies, key = { it.id }) { result ->
+                    items(currentState.movies, key = { "${it.mediaType}-${it.id}" }) { result ->
                         Card(
-                            onClick = { vm.loadTmdbDetails(result.id) },
+                            onClick = { vm.loadTmdbDetails(result.id, result.mediaType) },
                             shape = RoundedCornerShape(14.dp)
                         ) {
                             Row(
@@ -1114,9 +1132,22 @@ private fun TmdbPreview(details: TmdbMovieDetails, vm: MovieViewModel, onSaved: 
     LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         item { TextButton(onClick = vm::resetTmdb) { Text("← Retour aux résultats") } }
         if (details.posterUrl.isNotBlank()) item { Poster(details.posterUrl, details.title, Modifier.fillMaxWidth().height(330.dp)) }
-        item { Text(details.title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold) }
-        item { Text(listOfNotNull(details.year?.toString(), details.runtime?.let { "$it min" }, details.genres.takeIf { it.isNotEmpty() }?.joinToString(", ") { it.name }).joinToString(" • ")) }
-        if (director.isNotBlank()) item { Text("Réalisateur : $director") }
+        item {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(details.title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                AssistChip(onClick = {}, label = { Text(if (details.mediaType == "tv") "Série" else "Film") })
+            }
+        }
+        item {
+            Text(listOfNotNull(
+                details.year?.toString(),
+                details.runtime?.let { if (details.mediaType == "tv") "~$it min/épisode" else "$it min" },
+                details.totalSeasons?.takeIf { details.mediaType == "tv" }?.let { "$it saison${if (it > 1) "s" else ""}" },
+                details.totalEpisodes?.takeIf { details.mediaType == "tv" }?.let { "$it épisodes" },
+                details.genres.takeIf { it.isNotEmpty() }?.joinToString(", ") { it.name }
+            ).joinToString(" • "))
+        }
+        if (director.isNotBlank()) item { Text(if (details.mediaType == "tv") "Création / réalisation : $director" else "Réalisateur : $director") }
         if (actors.isNotBlank()) item { Text("Acteurs : $actors") }
         if (details.overview.isNotBlank()) item { Text(details.overview) }
         item {
@@ -1136,7 +1167,14 @@ private fun ManualAddTab(vm: MovieViewModel, onSaved: () -> Unit) {
     var director by remember { mutableStateOf("") }
     var genre by remember { mutableStateOf("") }
     var status by remember { mutableStateOf(MovieStatus.OWNED) }
+    var mediaType by remember { mutableStateOf("movie") }
     LazyColumn(Modifier.fillMaxSize().padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        item {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(mediaType == "movie", { mediaType = "movie" }, label = { Text("Film") })
+                FilterChip(mediaType == "tv", { mediaType = "tv" }, label = { Text("Série") })
+            }
+        }
         item { OutlinedTextField(title, { title = it }, Modifier.fillMaxWidth(), label = { Text("Titre *") }, shape = RoundedCornerShape(14.dp)) }
         item { OutlinedTextField(year, { year = it.filter(Char::isDigit).take(4) }, Modifier.fillMaxWidth(), label = { Text("Année") }, shape = RoundedCornerShape(14.dp)) }
         item { OutlinedTextField(director, { director = it }, Modifier.fillMaxWidth(), label = { Text("Réalisateur") }, shape = RoundedCornerShape(14.dp)) }
@@ -1146,7 +1184,7 @@ private fun ManualAddTab(vm: MovieViewModel, onSaved: () -> Unit) {
             FilterChip(status == MovieStatus.WANTED, { status = MovieStatus.WANTED }, label = { Text("Souhait") })
         } }
         item { PremiumButton("Enregistrer", { Icon(Icons.Default.Save, null) }, {
-            if (title.isNotBlank()) vm.save(Movie(title = title.trim(), year = year.toIntOrNull(), director = director.trim(), genre = genre.trim(), status = status), onSaved)
+            if (title.isNotBlank()) vm.save(Movie(title = title.trim(), year = year.toIntOrNull(), director = director.trim(), genre = genre.trim(), status = status, mediaType = mediaType), onSaved)
         }, Modifier.fillMaxWidth()) }
     }
 }
@@ -1174,7 +1212,7 @@ private fun DetailScreen(
         backdropLoaded = false
         backdropFade.snapTo(0f)
         vm.resetCinema()
-        vm.loadCinema(current?.tmdbId)
+        vm.loadCinema(current?.tmdbId, current?.mediaType ?: "movie")
     }
     DisposableEffect(Unit) {
         onDispose { vm.resetCinema() }
@@ -1304,7 +1342,7 @@ private fun DetailScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 current.year?.let { CinemaMeta(Icons.Default.CalendarMonth, it.toString()) }
-                                current.durationMinutes?.let { CinemaMeta(Icons.Default.Schedule, "${it / 60}h ${it % 60}min") }
+                                current.durationMinutes?.let { CinemaMeta(Icons.Default.Schedule, if (current.mediaType == "tv") "~${it}min/ép." else "${it / 60}h ${it % 60}min") }
                                 Surface(
                                     onClick = { ratingDialogOpen = true },
                                     color = Color.Transparent,
@@ -1360,6 +1398,54 @@ private fun DetailScreen(
                             style = MaterialTheme.typography.bodyLarge,
                             color = Color.White.copy(alpha = .88f)
                         )
+                    }
+                }
+
+                if (current.mediaType == "tv") {
+                    item {
+                        val owned = current.ownedSeasons.split(",").mapNotNull { it.toIntOrNull() }.toSet()
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = Color(0xD012141B)),
+                            shape = RoundedCornerShape(18.dp),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = .35f))
+                        ) {
+                            Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Icon(Icons.Default.Tv, null, tint = MaterialTheme.colorScheme.primary)
+                                    Text("SÉRIE", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.ExtraBold)
+                                }
+                                Text(
+                                    listOfNotNull(
+                                        current.totalSeasons?.let { "$it saison${if (it > 1) "s" else ""}" },
+                                        current.totalEpisodes?.let { "$it épisodes" }
+                                    ).joinToString(" • "),
+                                    color = Color.White, fontWeight = FontWeight.SemiBold
+                                )
+                                current.totalSeasons?.takeIf { it > 0 }?.let { count ->
+                                    Text("Saisons possédées", color = Color.White.copy(alpha = .8f), fontWeight = FontWeight.Bold)
+                                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        items((1..count).toList()) { season ->
+                                            FilterChip(
+                                                selected = season in owned,
+                                                onClick = { vm.toggleOwnedSeason(current, season) },
+                                                label = { Text("S$season") },
+                                                leadingIcon = if (season in owned) { { Icon(Icons.Default.Check, null, Modifier.size(16.dp)) } } else null
+                                            )
+                                        }
+                                    }
+                                }
+                                if (current.currentSeason != null || current.currentEpisode != null) {
+                                    Text(
+                                        "Progression : S${current.currentSeason ?: 1} • E${current.currentEpisode ?: 1}",
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Text(
+                                    "Les souhaits concernent la série complète, jamais une saison.",
+                                    style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = .62f)
+                                )
+                            }
+                        }
                     }
                 }
 
@@ -1552,7 +1638,7 @@ private fun CinemaModeScreen(
     LaunchedEffect(movie?.tmdbId) {
         fade.snapTo(0f)
         vm.resetCinema()
-        vm.loadCinema(movie?.tmdbId)
+        vm.loadCinema(movie?.tmdbId, movie?.mediaType ?: "movie")
         fade.animateTo(1f, animationSpec = tween(450))
     }
 
@@ -2053,6 +2139,7 @@ private fun SettingsScreen(
     val movies by vm.movies.collectAsStateWithLifecycle()
     val gson = remember { Gson() }
     var showAbout by remember { mutableStateOf(false) }
+    var showInternalBackups by remember { mutableStateOf(false) }
     var resetStep by remember { mutableIntStateOf(0) }
 
     val backupLauncher = rememberLauncherForActivityResult(
@@ -2260,12 +2347,36 @@ private fun SettingsScreen(
                         title = "Restaurer",
                         subtitle = "Récupère une sauvegarde Reelio"
                     ) { restoreLauncher.launch("application/json") }
+                    SettingsActionRow(
+                        icon = Icons.Default.History,
+                        title = "Restaurer une sauvegarde automatique",
+                        subtitle = "Choisit une sauvegarde du dossier Sauvegarde"
+                    ) { showInternalBackups = true }
+
 
                     SettingsActionRow(
                         icon = Icons.Default.FileDownload,
                         title = "Exporter en CSV",
                         subtitle = "Collection et souhaits dans un fichier CSV"
                     ) { exportLauncher.launch("reelio-collection.csv") }
+
+                    HorizontalDivider()
+                    Text("Sauvegardes automatiques", fontWeight = FontWeight.Bold)
+                    Text(
+                        "1 sauvegarde quotidienne à la première ouverture du jour • 3 sauvegardes actives maximum après modification.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        "Dossier : Sauvegarde",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    vm.latestDailyBackupName()?.let { name ->
+                        Text("Quotidienne : $name", style = MaterialTheme.typography.bodySmall)
+                    }
+                    val autos = vm.activeBackupNames()
+                    Text("Sauvegardes actives : ${autos.size}/3", style = MaterialTheme.typography.bodySmall)
 
                     SettingsActionRow(
                         icon = Icons.Default.RestartAlt,
@@ -2334,6 +2445,41 @@ private fun SettingsScreen(
         )
     }
 
+    if (showInternalBackups) {
+        val internalBackups = vm.allInternalBackupNames()
+        AlertDialog(
+            onDismissRequest = { showInternalBackups = false },
+            title = { Text("Sauvegardes automatiques") },
+            text = {
+                if (internalBackups.isEmpty()) {
+                    Text("Aucune sauvegarde automatique disponible.")
+                } else {
+                    LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(internalBackups) { name ->
+                            Surface(
+                                onClick = {
+                                    vm.restoreInternalBackup(
+                                        name,
+                                        onDone = {
+                                            showInternalBackups = false
+                                            Toast.makeText(context, "Sauvegarde restaurée", Toast.LENGTH_SHORT).show()
+                                        },
+                                        onError = { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() }
+                                    )
+                                },
+                                shape = RoundedCornerShape(12.dp),
+                                color = MaterialTheme.colorScheme.surfaceVariant
+                            ) {
+                                Text(name, Modifier.fillMaxWidth().padding(12.dp))
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { showInternalBackups = false }) { Text("Fermer") } }
+        )
+    }
+
     if (showAbout) {
         AlertDialog(
             onDismissRequest = { showAbout = false },
@@ -2346,12 +2492,12 @@ private fun SettingsScreen(
             },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("Votre collection cinéma, simplement organisée.")
-                    Text("by ED", fontWeight = FontWeight.Bold, color = ReelioBrandPurple)
-                    HorizontalDivider()
-                    Text("Reelio vous permet de gérer votre bibliothèque, vos souhaits, vos sagas et de choisir quoi regarder.")
-                    Text("Données cinéma et affiches fournies par TMDB. Reelio utilise l’API TMDB mais n’est ni approuvé ni certifié par TMDB.", style = MaterialTheme.typography.bodySmall)
-                    Text("Votre collection est enregistrée localement sur votre appareil.", style = MaterialTheme.typography.bodySmall)
+                    Text("Qu’est-ce que Reelio ?", fontWeight = FontWeight.Bold)
+                    Text("Reelio est votre vidéothèque personnelle pour films et séries.")
+                    Text("Il vous permet de gérer simplement votre collection DVD et Blu-ray, vos souhaits et votre suivi de visionnage.")
+                    Text("Grâce aux informations de TMDB, Reelio enrichit automatiquement votre collection avec affiches, synopsis, casting et autres informations sur vos titres.")
+                    Text("Votre collection, votre cinéma.", fontWeight = FontWeight.Bold)
+                    Text("by ED", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                 }
             },
             confirmButton = {

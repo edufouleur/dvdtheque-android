@@ -14,8 +14,8 @@ android {
         applicationId = "fr.dvdtheque.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 17
-        versionName = "1.17"
+        versionCode = 200
+        versionName = "2.00"
         buildConfigField("String", "TMDB_TOKEN", "\"$tmdbToken\"")
     }
 

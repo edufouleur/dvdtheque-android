@@ -23,7 +23,13 @@ data class Movie(
     val location: String = "",
     val addedAt: Long = System.currentTimeMillis(),
     val watched: Boolean = false,
-    val tmdbId: Int? = null
+    val tmdbId: Int? = null,
+    val mediaType: String = "movie",
+    val totalSeasons: Int? = null,
+    val totalEpisodes: Int? = null,
+    val ownedSeasons: String = "",
+    val currentSeason: Int? = null,
+    val currentEpisode: Int? = null
 )
 
 enum class MovieStatus { OWNED, WANTED }

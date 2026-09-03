@@ -1,3 +1,7 @@
+# Reelio v2.00 — Films & Séries
+
+Reelio est une vidéothèque personnelle Android pour gérer une collection de films et de séries DVD/Blu-ray, les souhaits et le suivi de visionnage.
+
 # Reelio v1.16 – Cinéma Premium
 
 Mise à jour visuelle et gestion des données.
