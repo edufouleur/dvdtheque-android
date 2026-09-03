@@ -1,0 +1,7 @@
+Reelio v2.01 — Correctifs stabilité
+
+- Corrige le plantage lors de la recherche TMDB de films : le type "movie" est maintenant normalisé explicitement dans les résultats et les détails.
+- Corrige la restauration des sauvegardes créées avec Reelio 1.x : les champs Films & Séries absents sont reconstruits avec des valeurs sûres.
+- La restauration est maintenant transactionnelle : en cas de fichier invalide, la collection existante n'est pas supprimée partiellement.
+- Les sauvegardes internes automatiques utilisent le même codec rétrocompatible.
+- Version Android : 2.01 (versionCode 201).

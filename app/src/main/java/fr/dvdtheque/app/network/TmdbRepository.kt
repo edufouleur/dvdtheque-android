@@ -6,6 +6,8 @@ import fr.dvdtheque.app.data.MovieStatus
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.time.OffsetDateTime
+import java.text.Normalizer
+import java.util.Locale
 
 class TmdbRepository {
     private val api: TmdbApi = Retrofit.Builder()
@@ -22,14 +24,98 @@ class TmdbRepository {
         }
 
     suspend fun search(query: String): List<TmdbMovieResult> {
-        val clean = query.trim()
-        val movies = api.searchMovies(authorization, clean).results
-        val series = api.searchTv(authorization, clean).results.map { it.asCatalogResult() }
-        return (movies + series).sortedWith(compareBy<TmdbMovieResult> { if (it.mediaType == "movie") 0 else 1 }.thenByDescending { it.year ?: 0 })
+        val clean = query.trim().replace("\\s+".toRegex(), " ")
+        if (clean.isBlank()) return emptyList()
+
+        val collected = linkedMapOf<String, TmdbMovieResult>()
+        suspend fun collect(term: String) {
+            if (term.isBlank()) return
+            val movies = api.searchMovies(authorization, term).results.map { it.copy(mediaType = "movie") }
+            val series = api.searchTv(authorization, term).results.map { it.asCatalogResult() }
+            (movies + series).forEach { result -> collected["${result.mediaType}:${result.id}"] = result }
+        }
+
+        // Première recherche : saisie exacte de l'utilisateur.
+        collect(clean)
+
+        // Si TMDB donne peu de résultats, Reelio élargit automatiquement la requête.
+        // Cela permet notamment « sens de la fete » -> « Le Sens de la fête ».
+        if (collected.size < 8) {
+            val withoutLeadingArticle = removeLeadingArticle(clean)
+            if (!withoutLeadingArticle.equals(clean, ignoreCase = true)) collect(withoutLeadingArticle)
+
+            val normalizedWords = normalizeSearch(clean)
+            if (normalizedWords.isNotBlank() && !normalizedWords.equals(normalizeSearch(withoutLeadingArticle), true)) {
+                collect(normalizedWords)
+            }
+
+            if (!startsWithFrenchArticle(clean)) {
+                for (article in listOf("le", "la", "les", "un", "une")) {
+                    collect("$article $clean")
+                    if (collected.size >= 20) break
+                }
+            }
+        }
+
+        return collected.values
+            .sortedWith(
+                compareByDescending<TmdbMovieResult> { relevanceScore(clean, it) }
+                    .thenByDescending { it.year ?: 0 }
+            )
+            .take(40)
+    }
+
+    private fun startsWithFrenchArticle(value: String): Boolean {
+        val first = normalizeBasic(value).substringBefore(' ')
+        return first in setOf("le", "la", "les", "l", "un", "une", "des")
+    }
+
+    private fun removeLeadingArticle(value: String): String {
+        val cleaned = value.trim()
+        return cleaned.replace(Regex("(?i)^(le|la|les|un|une|des)\\s+|^l[’']\\s*"), "").trim()
+    }
+
+    private fun normalizeBasic(value: String): String = Normalizer
+        .normalize(value.lowercase(Locale.FRENCH), Normalizer.Form.NFD)
+        .replace("\\p{M}+".toRegex(), "")
+        .replace("[’']".toRegex(), " ")
+        .replace("[^a-z0-9]+".toRegex(), " ")
+        .trim()
+        .replace("\\s+".toRegex(), " ")
+
+    private fun normalizeSearch(value: String): String = normalizeBasic(value)
+        .split(" ")
+        .filter { it.isNotBlank() && it !in setOf("le", "la", "les", "l", "un", "une", "des") }
+        .joinToString(" ")
+
+    private fun relevanceScore(query: String, result: TmdbMovieResult): Int {
+        val q = normalizeSearch(query)
+        val title = normalizeSearch(result.title)
+        val original = normalizeSearch(result.originalTitle)
+        if (q.isBlank()) return 0
+        val words = q.split(" ").filter { it.isNotBlank() }
+        return maxOf(scoreAgainst(q, words, title), scoreAgainst(q, words, original))
+    }
+
+    private fun scoreAgainst(query: String, words: List<String>, candidate: String): Int {
+        if (candidate.isBlank()) return 0
+        var score = 0
+        if (candidate == query) score += 200
+        if (candidate.startsWith(query)) score += 100
+        if (candidate.contains(query)) score += 70
+        val matches = words.count { candidate.split(" ").contains(it) }
+        score += matches * 20
+        if (words.isNotEmpty() && matches == words.size) score += 50
+        return score
     }
 
     suspend fun details(id: Int, mediaType: String = "movie"): TmdbMovieDetails =
-        if (mediaType == "tv") api.tvDetails(authorization, id).asMovieDetails() else api.movieDetails(authorization, id)
+        if (mediaType == "tv") {
+            api.tvDetails(authorization, id).asMovieDetails()
+        } else {
+            // Même protection pour movie/{id}: le JSON TMDB ne contient pas mediaType.
+            api.movieDetails(authorization, id).copy(mediaType = "movie")
+        }
 
     suspend fun trailer(id: Int, mediaType: String = "movie"): TmdbVideo? {
         fun choose(videos: List<TmdbVideo>): TmdbVideo? = videos

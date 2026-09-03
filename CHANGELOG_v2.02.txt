@@ -1,0 +1,12 @@
+Reelio v2.02 — Correctifs et recherche améliorée
+
+- Version Android : 2.02 (versionCode 202).
+- Conservation de l’applicationId fr.dvdtheque.app pour mise à jour sans perte de collection.
+- Correctifs v2.01 conservés : stabilité de la recherche TMDB et restauration compatible avec anciennes sauvegardes.
+- Recherche TMDB plus tolérante : articles français facultatifs, accents/apostrophes/ponctuation neutralisés pour le classement, requêtes de secours automatiques.
+- Exemple pris en charge : « sens de la fete » peut retrouver « Le Sens de la fête ».
+- Protection anti-doublons : priorité au TMDB ID + type, puis titre/année/type pour les ajouts manuels ou anciens titres sans TMDB ID.
+- Passage Souhaits -> Bibliothèque sans création d’une seconde copie du même titre.
+- Bibliothèque épurée : suppression des filtres Vu/Pas vu, du symbole d’état sur l’affiche et des mentions Vu/À voir sous les affiches.
+- Le statut vu/pas vu reste disponible dans la fiche détaillée.
+- Les notes restent visibles sur les cartes lorsqu’elles existent et suivent la couleur d’accent Reelio.

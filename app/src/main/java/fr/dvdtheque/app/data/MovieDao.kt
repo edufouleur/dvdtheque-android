@@ -25,4 +25,10 @@ interface MovieDao {
 
     @Query("DELETE FROM movies")
     suspend fun deleteAll()
+
+    @Transaction
+    suspend fun replaceAll(movies: List<Movie>) {
+        deleteAll()
+        upsertAll(movies)
+    }
 }

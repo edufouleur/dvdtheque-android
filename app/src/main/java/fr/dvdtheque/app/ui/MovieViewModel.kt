@@ -106,8 +106,42 @@ class MovieViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun addTmdbMovie(details: TmdbMovieDetails, status: MovieStatus, onSaved: () -> Unit) = viewModelScope.launch {
-        repository.save(tmdbRepository.toMovie(details, status))
+    fun addTmdbMovie(
+        details: TmdbMovieDetails,
+        status: MovieStatus,
+        onSaved: () -> Unit,
+        onDuplicate: ((String) -> Unit)? = null
+    ) = viewModelScope.launch {
+        val candidate = tmdbRepository.toMovie(details, status)
+        val existing = repository.findDuplicate(candidate)
+        if (existing != null) {
+            if (existing.status == MovieStatus.WANTED && status == MovieStatus.OWNED) {
+                repository.save(existing.copy(
+                    status = MovieStatus.OWNED,
+                    title = candidate.title,
+                    originalTitle = candidate.originalTitle,
+                    year = candidate.year,
+                    director = candidate.director,
+                    actors = candidate.actors,
+                    genre = candidate.genre,
+                    durationMinutes = candidate.durationMinutes,
+                    synopsis = candidate.synopsis,
+                    posterUrl = candidate.posterUrl,
+                    tmdbId = candidate.tmdbId,
+                    mediaType = candidate.mediaType,
+                    totalSeasons = candidate.totalSeasons,
+                    totalEpisodes = candidate.totalEpisodes
+                ))
+                backupManager.createActiveBackup()
+                _tmdbState.value = TmdbUiState.Idle
+                onSaved()
+            } else {
+                val kind = if (candidate.mediaType == "tv") "Cette série" else "Ce film"
+                onDuplicate?.invoke("$kind est déjà dans ${if (existing.status == MovieStatus.OWNED) "votre bibliothèque" else "vos souhaits"}.")
+            }
+            return@launch
+        }
+        repository.save(candidate)
         backupManager.createActiveBackup()
         _tmdbState.value = TmdbUiState.Idle
         onSaved()
@@ -116,10 +150,25 @@ class MovieViewModel(application: Application) : AndroidViewModel(application) {
     fun addSuggestionToWishlist(result: TmdbMovieResult, onSaved: (() -> Unit)? = null) = viewModelScope.launch {
         try {
             val details = tmdbRepository.details(result.id, result.mediaType)
-            repository.save(tmdbRepository.toMovie(details, MovieStatus.WANTED))
-            backupManager.createActiveBackup()
-            onSaved?.invoke()
+            val candidate = tmdbRepository.toMovie(details, MovieStatus.WANTED)
+            if (repository.findDuplicate(candidate) == null) {
+                repository.save(candidate)
+                backupManager.createActiveBackup()
+                onSaved?.invoke()
+            }
         } catch (_: Exception) { }
+    }
+
+    fun addManualMovie(movie: Movie, onSaved: () -> Unit, onDuplicate: ((String) -> Unit)? = null) = viewModelScope.launch {
+        val existing = repository.findDuplicate(movie)
+        if (existing != null) {
+            val kind = if (movie.mediaType == "tv") "Cette série" else "Ce film"
+            onDuplicate?.invoke("$kind est déjà enregistré dans Reelio.")
+            return@launch
+        }
+        repository.save(movie)
+        backupManager.createActiveBackup()
+        onSaved()
     }
 
     fun resetTmdb() { _tmdbState.value = TmdbUiState.Idle }

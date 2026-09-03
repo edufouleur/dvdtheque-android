@@ -49,13 +49,11 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.*
 import androidx.navigation.navArgument
 import coil.compose.AsyncImage
-import com.google.gson.Gson
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import androidx.core.content.FileProvider
 import java.io.File
-import com.google.gson.reflect.TypeToken
 import fr.dvdtheque.app.BuildConfig
 import fr.dvdtheque.app.R
 import fr.dvdtheque.app.data.*
@@ -374,14 +372,13 @@ private fun LibraryScreen(
     val all by vm.movies.collectAsStateWithLifecycle()
     val query by vm.query.collectAsStateWithLifecycle()
     val sort by vm.sort.collectAsStateWithLifecycle()
-    var watchedFilter by remember { mutableStateOf<Boolean?>(null) }
     var mediaFilter by remember { mutableStateOf("all") }
     var showSort by remember { mutableStateOf(false) }
     var searchOpen by remember { mutableStateOf(false) }
 
     val owned = all.filter { it.status == MovieStatus.OWNED }
     val mediaOwned = owned.filter { mediaFilter == "all" || it.mediaType == mediaFilter }
-    val movies = mediaOwned.filter { watchedFilter == null || it.watched == watchedFilter }
+    val movies = mediaOwned
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -428,27 +425,6 @@ private fun LibraryScreen(
                 FilterChip(selected = mediaFilter == "all", onClick = { mediaFilter = "all" }, label = { Text("Tout") })
                 FilterChip(selected = mediaFilter == "movie", onClick = { mediaFilter = "movie" }, label = { Text("Films") })
                 FilterChip(selected = mediaFilter == "tv", onClick = { mediaFilter = "tv" }, label = { Text("Séries") })
-            }
-
-            Row(
-                Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                FilterChip(
-                    selected = watchedFilter == null,
-                    onClick = { watchedFilter = null },
-                    label = { Text("Tous (${mediaOwned.size})") }
-                )
-                FilterChip(
-                    selected = watchedFilter == true,
-                    onClick = { watchedFilter = true },
-                    label = { Text("Vus") }
-                )
-                FilterChip(
-                    selected = watchedFilter == false,
-                    onClick = { watchedFilter = false },
-                    label = { Text("Pas vus") }
-                )
             }
 
             Row(
@@ -528,23 +504,6 @@ private fun MovieCard(movie: Movie, onOpen: (Long) -> Unit) {
                         .fillMaxWidth()
                         .aspectRatio(2f / 3f)
                 )
-                Surface(
-                    shape = CircleShape,
-                    color = MaterialTheme.colorScheme.surface.copy(alpha = .88f),
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(6.dp)
-                        .size(26.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            if (movie.status == MovieStatus.WANTED) Icons.Default.Favorite else if (movie.watched) Icons.Default.CheckCircle else Icons.Default.Circle,
-                            contentDescription = null,
-                            tint = if (movie.status == MovieStatus.WANTED || movie.watched) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
-                }
             }
             Column(Modifier.padding(horizontal = 8.dp, vertical = 8.dp)) {
                 Text(
@@ -560,12 +519,14 @@ private fun MovieCard(movie: Movie, onOpen: (Long) -> Unit) {
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    if (movie.rating != null) "★ ${movie.rating}/5" else if (movie.watched) "✓ Vu" else "○ À voir",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = if (movie.rating != null) Color(0xFFFFC928) else MaterialTheme.colorScheme.primary
-                )
+                if (movie.rating != null) {
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        "${movie.rating}/5 ★",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
             }
         }
     }
@@ -1127,6 +1088,7 @@ private fun buildOcrTitleCandidates(result: com.google.mlkit.vision.text.Text): 
 @Composable
 private fun TmdbPreview(details: TmdbMovieDetails, vm: MovieViewModel, onSaved: () -> Unit) {
     var status by remember { mutableStateOf(MovieStatus.OWNED) }
+    var duplicateMessage by remember { mutableStateOf<String?>(null) }
     val director = details.credits?.crew?.firstOrNull { it.job.equals("Director", true) }?.name.orEmpty()
     val actors = details.credits?.cast?.sortedBy { it.order }?.take(6)?.joinToString(", ") { it.name }.orEmpty()
     LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -1156,13 +1118,24 @@ private fun TmdbPreview(details: TmdbMovieDetails, vm: MovieViewModel, onSaved: 
                 FilterChip(selected = status == MovieStatus.WANTED, onClick = { status = MovieStatus.WANTED }, label = { Text("Souhait") })
             }
         }
-        item { PremiumButton("Ajouter", { Icon(Icons.Default.Add, null) }, { vm.addTmdbMovie(details, status, onSaved) }, Modifier.fillMaxWidth()) }
+        duplicateMessage?.let { message ->
+            item { Text(message, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold) }
+        }
+        item {
+            PremiumButton(
+                "Ajouter",
+                { Icon(Icons.Default.Add, null) },
+                { vm.addTmdbMovie(details, status, onSaved) { duplicateMessage = it } },
+                Modifier.fillMaxWidth()
+            )
+        }
     }
 }
 
 @Composable
 private fun ManualAddTab(vm: MovieViewModel, onSaved: () -> Unit) {
     var title by remember { mutableStateOf("") }
+    var duplicateMessage by remember { mutableStateOf<String?>(null) }
     var year by remember { mutableStateOf("") }
     var director by remember { mutableStateOf("") }
     var genre by remember { mutableStateOf("") }
@@ -1183,8 +1156,14 @@ private fun ManualAddTab(vm: MovieViewModel, onSaved: () -> Unit) {
             FilterChip(status == MovieStatus.OWNED, { status = MovieStatus.OWNED }, label = { Text("Bibliothèque", maxLines = 1, softWrap = false, fontSize = 10.sp) })
             FilterChip(status == MovieStatus.WANTED, { status = MovieStatus.WANTED }, label = { Text("Souhait") })
         } }
+        duplicateMessage?.let { message -> item { Text(message, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold) } }
         item { PremiumButton("Enregistrer", { Icon(Icons.Default.Save, null) }, {
-            if (title.isNotBlank()) vm.save(Movie(title = title.trim(), year = year.toIntOrNull(), director = director.trim(), genre = genre.trim(), status = status, mediaType = mediaType), onSaved)
+            if (title.isNotBlank()) {
+                vm.addManualMovie(
+                    Movie(title = title.trim(), year = year.toIntOrNull(), director = director.trim(), genre = genre.trim(), status = status, mediaType = mediaType),
+                    onSaved
+                ) { duplicateMessage = it }
+            }
         }, Modifier.fillMaxWidth()) }
     }
 }
@@ -2137,7 +2116,6 @@ private fun SettingsScreen(
 ) {
     val context = LocalContext.current
     val movies by vm.movies.collectAsStateWithLifecycle()
-    val gson = remember { Gson() }
     var showAbout by remember { mutableStateOf(false) }
     var showInternalBackups by remember { mutableStateOf(false) }
     var resetStep by remember { mutableIntStateOf(0) }
@@ -2147,7 +2125,7 @@ private fun SettingsScreen(
     ) { uri ->
         if (uri != null) runCatching {
             context.contentResolver.openOutputStream(uri)?.bufferedWriter()?.use {
-                it.write(gson.toJson(movies))
+                it.write(MovieBackupCodec.encode(movies))
             }
         }.onSuccess {
             Toast.makeText(context, "Sauvegarde créée", Toast.LENGTH_SHORT).show()
@@ -2162,8 +2140,7 @@ private fun SettingsScreen(
         if (uri != null) runCatching {
             val json = context.contentResolver.openInputStream(uri)
                 ?.bufferedReader()?.use { it.readText() }.orEmpty()
-            val type = object : TypeToken<List<Movie>>() {}.type
-            gson.fromJson<List<Movie>>(json, type) ?: emptyList()
+            MovieBackupCodec.decode(json)
         }.onSuccess { restored ->
             vm.restoreMovies(restored) {
                 Toast.makeText(context, "Collection restaurée", Toast.LENGTH_SHORT).show()
