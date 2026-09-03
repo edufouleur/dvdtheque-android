@@ -238,10 +238,43 @@ class MovieViewModel(application: Application) : AndroidViewModel(application) {
         backupManager.createActiveBackup()
         onDeleted?.invoke()
     }
-    fun restoreMovies(restored: List<Movie>, onDone: (() -> Unit)? = null) = viewModelScope.launch {
-        repository.replaceAll(restored)
-        backupManager.createActiveBackup()
-        onDone?.invoke()
+    fun restoreMovies(
+        restored: List<Movie>,
+        onDone: (() -> Unit)? = null,
+        onError: ((String) -> Unit)? = null
+    ) = viewModelScope.launch {
+        try {
+            // Le fichier a déjà été entièrement décodé/validé avant cette étape.
+            repository.replaceAll(restored)
+            backupManager.createActiveBackup()
+            onDone?.invoke()
+        } catch (e: Exception) {
+            onError?.invoke(e.message ?: "Impossible de restaurer cette sauvegarde")
+        }
+    }
+
+    fun moveToLibrary(
+        movie: Movie,
+        onDone: (() -> Unit)? = null,
+        onInfo: ((String) -> Unit)? = null
+    ) = viewModelScope.launch {
+        try {
+            if (movie.status == MovieStatus.OWNED) {
+                onDone?.invoke()
+                return@launch
+            }
+            val duplicate = repository.findDuplicate(movie.copy(status = MovieStatus.OWNED), excludingId = movie.id)
+            if (duplicate != null && duplicate.status == MovieStatus.OWNED) {
+                repository.delete(movie)
+                onInfo?.invoke(if (movie.mediaType == "tv") "Cette série est déjà dans votre bibliothèque." else "Ce film est déjà dans votre bibliothèque.")
+            } else {
+                repository.save(movie.copy(status = MovieStatus.OWNED))
+            }
+            backupManager.createActiveBackup()
+            onDone?.invoke()
+        } catch (e: Exception) {
+            onInfo?.invoke(e.message ?: "Impossible d'ajouter ce titre à la bibliothèque")
+        }
     }
 
     fun toggleOwnedSeason(movie: Movie, season: Int) {

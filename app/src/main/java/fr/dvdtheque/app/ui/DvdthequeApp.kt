@@ -1176,10 +1176,11 @@ private fun DetailScreen(
     onBack: () -> Unit,
     onWatchGuide: () -> Unit
 ) {
-    val movie by vm.movie(id).collectAsStateWithLifecycle(initialValue = null)
     val all by vm.movies.collectAsStateWithLifecycle()
     val cinemaState by vm.cinemaState.collectAsStateWithLifecycle()
-    val current = movie
+    // Utilise la liste déjà observée par l'application : cela évite un état transitoire
+    // incohérent lors de l'ouverture d'un élément depuis Souhaits.
+    val current = all.firstOrNull { it.id == id }
     val context = LocalContext.current
     var menuOpen by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
@@ -1187,11 +1188,13 @@ private fun DetailScreen(
     var backdropLoaded by remember(current?.tmdbId) { mutableStateOf(false) }
     val backdropFade = remember(current?.tmdbId) { Animatable(0f) }
 
-    LaunchedEffect(current?.tmdbId) {
+    LaunchedEffect(current?.id, current?.tmdbId, current?.mediaType) {
         backdropLoaded = false
         backdropFade.snapTo(0f)
         vm.resetCinema()
-        vm.loadCinema(current?.tmdbId, current?.mediaType ?: "movie")
+        current?.let { item ->
+            vm.loadCinema(item.tmdbId, if (item.mediaType == "tv") "tv" else "movie")
+        }
     }
     DisposableEffect(Unit) {
         onDispose { vm.resetCinema() }
@@ -1477,9 +1480,18 @@ private fun DetailScreen(
                 item {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         PremiumOutlineButton(
-                            if (current.status == MovieStatus.OWNED) "Souhait" else "Acheté",
-                            { Icon(Icons.Default.Favorite, null) },
-                            { vm.toggleStatus(current) },
+                            if (current.status == MovieStatus.OWNED) "Souhait" else "Ajouter à la bibliothèque",
+                            { Icon(if (current.status == MovieStatus.OWNED) Icons.Default.Favorite else Icons.Default.LibraryAdd, null) },
+                            {
+                                if (current.status == MovieStatus.WANTED) {
+                                    vm.moveToLibrary(
+                                        current,
+                                        onInfo = { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() }
+                                    )
+                                } else {
+                                    vm.toggleStatus(current)
+                                }
+                            },
                             Modifier.weight(1f)
                         )
                         PremiumOutlineButton(
@@ -1522,7 +1534,16 @@ private fun DetailScreen(
                     leadingIcon = { Icon(Icons.Default.FavoriteBorder, null) },
                     onClick = {
                         menuOpen = false
-                        current?.let(vm::toggleStatus)
+                        current?.let { item ->
+                            if (item.status == MovieStatus.WANTED) {
+                                vm.moveToLibrary(
+                                    item,
+                                    onInfo = { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() }
+                                )
+                            } else {
+                                vm.toggleStatus(item)
+                            }
+                        }
                     }
                 )
                 DropdownMenuItem(
@@ -2142,11 +2163,17 @@ private fun SettingsScreen(
                 ?.bufferedReader()?.use { it.readText() }.orEmpty()
             MovieBackupCodec.decode(json)
         }.onSuccess { restored ->
-            vm.restoreMovies(restored) {
-                Toast.makeText(context, "Collection restaurée", Toast.LENGTH_SHORT).show()
-            }
-        }.onFailure {
-            Toast.makeText(context, "Fichier de sauvegarde invalide", Toast.LENGTH_SHORT).show()
+            vm.restoreMovies(
+                restored,
+                onDone = { Toast.makeText(context, "Collection restaurée (${restored.size} titre(s))", Toast.LENGTH_SHORT).show() },
+                onError = { message -> Toast.makeText(context, "Restauration impossible : $message", Toast.LENGTH_LONG).show() }
+            )
+        }.onFailure { error ->
+            Toast.makeText(
+                context,
+                "Fichier de sauvegarde invalide : ${error.message ?: "format non reconnu"}",
+                Toast.LENGTH_LONG
+            ).show()
         }
     }
 

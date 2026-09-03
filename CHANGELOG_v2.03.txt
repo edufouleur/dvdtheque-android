@@ -1,0 +1,14 @@
+Reelio v2.03 — Correctifs sauvegardes & souhaits
+
+- Restauration rétrocompatible avec les sauvegardes historiques Reelio 1.x.
+- Accepte les sauvegardes JSON en tableau direct et plusieurs formats enveloppés.
+- Tolère BOM, champs absents et anciens noms de champs.
+- Les entrées historiques sans mediaType sont restaurées comme films.
+- Nettoyage des doublons pendant la restauration (TMDB ID puis titre/année/type).
+- Validation du fichier avant remplacement de la collection.
+- Message d'erreur de restauration plus explicite.
+- Sécurisation de l'ouverture d'une fiche depuis Souhaits.
+- Chargement Cinéma uniquement quand l'élément est réellement disponible.
+- Action claire « Ajouter à la bibliothèque » depuis une fiche de Souhaits.
+- Le passage Souhaits → Bibliothèque réutilise l'élément existant et évite les doublons.
+- Version 2.03 / versionCode 203.
