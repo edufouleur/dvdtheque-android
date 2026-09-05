@@ -1,0 +1,9 @@
+Reelio v2.04
+
+- Bibliothèque et Souhaits deviennent strictement exclusifs pour un même film ou une même série.
+- Les affiches « Au cinéma » et « Pour vous » ouvrent maintenant une fiche détaillée TMDB dans Souhaits.
+- Depuis cette fiche, choix Bibliothèque ou Souhaits avec contrôle anti-doublon.
+- Dans Ce soir > Continuer, chaque proposition possède son bouton de réinitialisation individuel (deux flèches circulaires), teinté avec la couleur choisie.
+- La section Saga reste affichée automatiquement dans les fiches des titres reconnus par le catalogue de sagas Reelio.
+- Tous les correctifs v2.03 (restauration historique, Souhaits, recherche et anti-doublons) sont conservés.
+- Version 2.04 / versionCode 204.

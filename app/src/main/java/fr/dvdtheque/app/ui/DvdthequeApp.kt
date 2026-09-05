@@ -38,6 +38,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -582,6 +583,7 @@ private fun EmptyState(title: String, subtitle: String, onAdd: () -> Unit) {
 private fun WishlistScreen(vm: MovieViewModel, onOpen: (Long) -> Unit, onAdd: () -> Unit, onNavigate: (String) -> Unit) {
     val all by vm.movies.collectAsStateWithLifecycle()
     val discovery by vm.discovery.collectAsStateWithLifecycle()
+    val tmdbState by vm.tmdbState.collectAsStateWithLifecycle()
     val wishes = all.filter { it.status == MovieStatus.WANTED }
     LaunchedEffect(Unit) { vm.loadDiscovery() }
 
@@ -603,6 +605,22 @@ private fun WishlistScreen(vm: MovieViewModel, onOpen: (Long) -> Unit, onAdd: ()
             if (discovery.forYou.isNotEmpty()) item { DiscoverySection("Pour vous", Icons.Default.AutoAwesome, "Inspiré de votre bibliothèque", discovery.forYou, all, vm) }
             if (discovery.physical.isNotEmpty()) item { DiscoverySection("DVD / Blu-ray", Icons.Default.Album, "Sorties physiques détectées en France", discovery.physical, all, vm) }
             item { Spacer(Modifier.height(8.dp)) }
+        }
+    }
+    if (tmdbState is TmdbUiState.Preview) {
+        Dialog(onDismissRequest = vm::resetTmdb) {
+            Surface(
+                modifier = Modifier.fillMaxWidth().fillMaxHeight(.92f),
+                shape = RoundedCornerShape(24.dp),
+                color = MaterialTheme.colorScheme.surface
+            ) {
+                Box(Modifier.padding(12.dp)) {
+                    TmdbPreview((tmdbState as TmdbUiState.Preview).details, vm) {
+                        vm.resetTmdb()
+                        vm.loadDiscovery()
+                    }
+                }
+            }
         }
     }
 }
@@ -1993,7 +2011,7 @@ private fun WatchTonightScreen(
                     { randomId = owned.filter { !it.watched }.ifEmpty { owned }.randomOrNull()?.id },
                     onOpen
                 )
-                1 -> ContinueSagaTab(owned, all)
+                1 -> ContinueSagaTab(owned, all, vm)
                 else -> WatchOrderTab(
                     all,
                     universeIndex,
@@ -2079,17 +2097,23 @@ private fun RandomWatchTab(
 }
 
 @Composable
-private fun ContinueSagaTab(owned: List<Movie>, all: List<Movie>) {
-    val suggestions = owned.filter { it.watched }.mapNotNull { watched -> SagaCatalog.nextInKnownSaga(watched, all)?.let { watched to it } }.distinctBy { it.second.title }
+private fun ContinueSagaTab(owned: List<Movie>, all: List<Movie>, vm: MovieViewModel) {
+    val dismissed by vm.dismissedContinue.collectAsStateWithLifecycle()
+    val suggestions = owned.filter { it.watched && it.id !in dismissed }.mapNotNull { watched -> SagaCatalog.nextInKnownSaga(watched, all)?.let { watched to it } }.distinctBy { it.second.title }
     LazyColumn(Modifier.fillMaxSize().padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         item { Text("Reprendre là où vous en êtes", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }
         if (suggestions.isEmpty()) item { Text("Marque des films comme vus pour que Reelio puisse proposer la suite d'une saga.") }
         items(suggestions) { (previous, next) ->
             Card(shape = RoundedCornerShape(16.dp)) {
-                Column(Modifier.padding(14.dp)) {
-                    Text(next.title, fontWeight = FontWeight.Bold)
-                    Text("Après : ${previous.title}", style = MaterialTheme.typography.bodySmall)
-                    Text(next.kind, color = MaterialTheme.colorScheme.primary)
+                Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(next.title, fontWeight = FontWeight.Bold)
+                        Text("Après : ${previous.title}", style = MaterialTheme.typography.bodySmall)
+                        Text(next.kind, color = MaterialTheme.colorScheme.primary)
+                    }
+                    IconButton(onClick = { vm.resetContinueFor(previous.id) }) {
+                        Icon(Icons.Default.Autorenew, contentDescription = "Réinitialiser ce titre", tint = MaterialTheme.colorScheme.primary)
+                    }
                 }
             }
         }

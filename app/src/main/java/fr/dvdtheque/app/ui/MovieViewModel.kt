@@ -56,6 +56,16 @@ class MovieViewModel(application: Application) : AndroidViewModel(application) {
     private val _cinemaState = MutableStateFlow<CinemaUiState>(CinemaUiState.Idle)
     val cinemaState = _cinemaState.asStateFlow()
 
+    private val continuePrefs = application.getSharedPreferences("reelio_continue", 0)
+    private val _dismissedContinue = MutableStateFlow(continuePrefs.getStringSet("dismissed", emptySet())?.mapNotNull { it.toLongOrNull() }?.toSet() ?: emptySet())
+    val dismissedContinue = _dismissedContinue.asStateFlow()
+
+    fun resetContinueFor(movieId: Long) {
+        val updated = _dismissedContinue.value + movieId
+        _dismissedContinue.value = updated
+        continuePrefs.edit().putStringSet("dismissed", updated.map { it.toString() }.toSet()).apply()
+    }
+
     val movies: StateFlow<List<Movie>> = combine(repository.movies, _query, _sort) { movies, query, sort ->
         val filtered = if (query.isBlank()) movies else movies.filter {
             it.title.contains(query, true) || it.director.contains(query, true) ||
@@ -194,7 +204,13 @@ class MovieViewModel(application: Application) : AndroidViewModel(application) {
         backupManager.createActiveBackup()
         onSaved?.invoke()
     }
-    fun toggleStatus(movie: Movie) = save(movie.copy(status = if (movie.status == MovieStatus.OWNED) MovieStatus.WANTED else MovieStatus.OWNED))
+    fun toggleStatus(movie: Movie) = viewModelScope.launch {
+        val target = if (movie.status == MovieStatus.OWNED) MovieStatus.WANTED else MovieStatus.OWNED
+        val duplicate = repository.findDuplicate(movie.copy(status = target), excludingId = movie.id)
+        if (duplicate != null) repository.delete(duplicate)
+        repository.save(movie.copy(status = target))
+        backupManager.createActiveBackup()
+    }
     fun setWatched(movie: Movie, watched: Boolean) = save(movie.copy(watched = watched))
     fun setRating(movie: Movie, rating: Int) = save(movie.copy(rating = rating.coerceIn(1, 5)))
 
