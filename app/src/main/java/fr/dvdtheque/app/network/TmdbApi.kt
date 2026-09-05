@@ -79,6 +79,21 @@ interface TmdbApi {
         @Query("page") page: Int = 1
     ): TmdbSearchResponse
 
+    @GET("tv/{tvId}/recommendations")
+    suspend fun tvRecommendations(
+        @Header("Authorization") authorization: String,
+        @Path("tvId") tvId: Int,
+        @Query("language") language: String = "fr-FR",
+        @Query("page") page: Int = 1
+    ): TmdbTvSearchResponse
+
+    @GET("collection/{collectionId}")
+    suspend fun collectionDetails(
+        @Header("Authorization") authorization: String,
+        @Path("collectionId") collectionId: Int,
+        @Query("language") language: String = "fr-FR"
+    ): TmdbCollectionDetails
+
     @GET("movie/{movieId}/release_dates")
     suspend fun releaseDates(
         @Header("Authorization") authorization: String,

@@ -139,9 +139,49 @@ class TmdbRepository {
     suspend fun popular(): List<TmdbMovieResult> = api.popular(authorization).results.take(20)
 
     suspend fun recommendations(movies: List<Movie>): List<TmdbMovieResult> {
-        val seed = movies.filter { it.status == MovieStatus.OWNED && it.tmdbId != null && it.mediaType == "movie" }
-            .maxByOrNull { it.addedAt }?.tmdbId
-        return if (seed != null) api.recommendations(authorization, seed).results.take(20) else popular()
+        val owned = movies.filter { it.status == MovieStatus.OWNED && it.tmdbId != null }
+            .sortedByDescending { it.addedAt }
+        val excluded = movies.mapNotNull { movie -> movie.tmdbId?.let { id -> id to movie.mediaType } }.toSet()
+        val suggestions = linkedMapOf<Pair<Int, String>, TmdbMovieResult>()
+
+        // 1) Priorité aux suites / trilogies / sagas des films déjà possédés.
+        owned.filter { it.mediaType == "movie" }.take(8).forEach { movie ->
+            runCatching {
+                val details = api.movieDetails(authorization, movie.tmdbId!!)
+                val collectionId = details.belongsToCollection?.id ?: return@runCatching
+                api.collectionDetails(authorization, collectionId).parts
+                    .sortedBy { it.releaseDate }
+                    .forEach { part ->
+                        val normalized = part.copy(mediaType = "movie")
+                        val key = normalized.id to "movie"
+                        if (key !in excluded) suggestions.putIfAbsent(key, normalized)
+                    }
+            }
+        }
+
+        // 2) Recommandations TMDB issues de plusieurs titres possédés, films et séries.
+        owned.take(8).forEach { movie ->
+            runCatching {
+                val results = if (movie.mediaType == "tv") {
+                    api.tvRecommendations(authorization, movie.tmdbId!!).results.map { it.asCatalogResult() }
+                } else {
+                    api.recommendations(authorization, movie.tmdbId!!).results.map { it.copy(mediaType = "movie") }
+                }
+                results.take(8).forEach { candidate ->
+                    val key = candidate.id to candidate.mediaType
+                    if (key !in excluded) suggestions.putIfAbsent(key, candidate)
+                }
+            }
+        }
+
+        // 3) Repli sur les films populaires si la collection est encore trop petite.
+        if (suggestions.size < 12) {
+            popular().forEach { candidate ->
+                val key = candidate.id to "movie"
+                if (key !in excluded) suggestions.putIfAbsent(key, candidate.copy(mediaType = "movie"))
+            }
+        }
+        return suggestions.values.take(24)
     }
 
     suspend fun physicalReleases(): List<TmdbMovieResult> {

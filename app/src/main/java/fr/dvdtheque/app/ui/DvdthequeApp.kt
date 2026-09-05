@@ -2376,35 +2376,16 @@ private fun SettingsScreen(
                         subtitle = "Récupère une sauvegarde Reelio"
                     ) { restoreLauncher.launch("application/json") }
                     SettingsActionRow(
-                        icon = Icons.Default.History,
-                        title = "Restaurer une sauvegarde automatique",
-                        subtitle = "Choisit une sauvegarde du dossier Sauvegarde"
+                        icon = Icons.Default.FolderOpen,
+                        title = "Dossier Sauvegarde",
+                        subtitle = "Accéder aux sauvegardes automatiques"
                     ) { showInternalBackups = true }
-
 
                     SettingsActionRow(
                         icon = Icons.Default.FileDownload,
                         title = "Exporter en CSV",
                         subtitle = "Collection et souhaits dans un fichier CSV"
                     ) { exportLauncher.launch("reelio-collection.csv") }
-
-                    HorizontalDivider()
-                    Text("Sauvegardes automatiques", fontWeight = FontWeight.Bold)
-                    Text(
-                        "1 sauvegarde quotidienne à la première ouverture du jour • 3 sauvegardes actives maximum après modification.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        "Dossier : Sauvegarde",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    vm.latestDailyBackupName()?.let { name ->
-                        Text("Quotidienne : $name", style = MaterialTheme.typography.bodySmall)
-                    }
-                    val autos = vm.activeBackupNames()
-                    Text("Sauvegardes actives : ${autos.size}/3", style = MaterialTheme.typography.bodySmall)
 
                     SettingsActionRow(
                         icon = Icons.Default.RestartAlt,
@@ -2477,7 +2458,7 @@ private fun SettingsScreen(
         val internalBackups = vm.allInternalBackupNames()
         AlertDialog(
             onDismissRequest = { showInternalBackups = false },
-            title = { Text("Sauvegardes automatiques") },
+            title = { Text("Dossier Sauvegarde") },
             text = {
                 if (internalBackups.isEmpty()) {
                     Text("Aucune sauvegarde automatique disponible.")

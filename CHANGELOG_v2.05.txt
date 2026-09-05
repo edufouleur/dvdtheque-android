@@ -1,0 +1,8 @@
+Reelio v2.05
+
+- Toutes les affiches des propositions de l'onglet Souhaits restent cliquables et ouvrent la fiche détaillée du film ou de la série.
+- Suggestions "Pour vous" davantage liées à la collection possédée : priorité aux suites, trilogies et sagas détectées via TMDB, puis recommandations issues de plusieurs films et séries possédés.
+- Les titres déjà présents dans Bibliothèque ou Souhaits sont exclus des recommandations personnalisées.
+- Paramètres > Données simplifié : suppression du détail technique des sauvegardes automatiques.
+- Ajout du bouton "Dossier Sauvegarde" pour accéder à la liste des sauvegardes automatiques et les restaurer.
+- Conservation des correctifs précédents : restauration des anciennes sauvegardes, anti-doublons, exclusivité Bibliothèque/Souhaits, correctifs de recherche et de fiches Souhaits.

@@ -31,7 +31,8 @@ data class TmdbMovieDetails(
     val credits: TmdbCredits? = null,
     val mediaType: String = "movie",
     val totalSeasons: Int? = null,
-    val totalEpisodes: Int? = null
+    val totalEpisodes: Int? = null,
+    @SerializedName("belongs_to_collection") val belongsToCollection: TmdbCollectionRef? = null
 ) {
     val year: Int? get() = releaseDate.take(4).toIntOrNull()
     val posterUrl: String get() = posterPath?.let { "https://image.tmdb.org/t/p/w500$it" } ?: ""
@@ -99,3 +100,7 @@ data class TmdbTvDetails(
         totalSeasons = numberOfSeasons, totalEpisodes = numberOfEpisodes
     )
 }
+
+
+data class TmdbCollectionRef(val id: Int, val name: String = "")
+data class TmdbCollectionDetails(val id: Int, val name: String = "", val parts: List<TmdbMovieResult> = emptyList())
